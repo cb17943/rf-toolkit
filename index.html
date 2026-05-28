@@ -1,772 +1,679 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RF 工具箱</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
-            padding-bottom: 30px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .tabs {
-            display: flex;
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            position: sticky;
-            top: 56px;
-            z-index: 99;
-        }
-        .tab {
-            flex: 1;
-            padding: 14px;
-            text-align: center;
-            font-size: 14px;
-            font-weight: 500;
-            color: #718096;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-            background: #f7fafc;
-        }
-        .tab-content { display: none; padding: 16px; }
-        .tab-content.active { display: block; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#667eea">
+<title>RF 工具箱</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#f5f6fa;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:10px 16px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.header .btn{padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer}
+.header .btn:hover{background:rgba(255,255,255,0.3)}
 
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 18px;
-            margin-bottom: 14px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
-        .card-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 14px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #edf2f7;
-        }
-        .input-group { margin-bottom: 12px; }
-        label {
-            display: block;
-            font-size: 13px;
-            color: #718096;
-            margin-bottom: 6px;
-            font-weight: 500;
-        }
-        input[type="number"], input[type="file"], input[type="text"] {
-            width: 100%;
-            padding: 12px 14px;
-            font-size: 16px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 10px;
-            outline: none;
-            transition: all 0.2s;
-            -webkit-appearance: none;
-            background: #fafbfc;
-        }
-        input[type="number"]:focus, input[type="text"]:focus {
-            border-color: #667eea;
-            background: white;
-        }
-        .file-input-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-            width: 100%;
-        }
-        .file-input-wrapper input[type=file] {
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        .file-btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 15px;
-        }
-        .result-box {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 14px;
-            border-radius: 12px;
-            margin-top: 12px;
-            text-align: center;
-        }
-        .result-label { font-size: 12px; opacity: 0.9; margin-bottom: 4px; }
-        .result-value {
-            font-size: 26px;
-            font-weight: 700;
-            font-family: "SF Mono", Monaco, monospace;
-        }
-        .formula {
-            font-size: 11px;
-            color: #a0aec0;
-            margin-top: 6px;
-            text-align: center;
-            font-family: monospace;
-        }
-        .btn-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        .btn-secondary {
-            background: #edf2f7;
-            color: #4a5568;
-        }
-        .btn:active { opacity: 0.8; transform: scale(0.98); }
+/* Tabs */
+.tabbar{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+.tabitem{flex:1;padding:12px;text-align:center;font-size:13px;font-weight:500;color:#718096;cursor:pointer;border-bottom:2px solid transparent;transition:.2s;-webkit-tap-highlight-color:transparent}
+.tabitem.active{color:#667eea;border-bottom-color:#667eea;background:#f7fafc}
+.tabpanel{display:none;flex:1;overflow:hidden}
+.tabpanel.active{display:flex}
 
-        /* S参数分析 */
-        .file-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 12px 0;
-        }
-        .file-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-            background: #edf2f7;
-            color: #4a5568;
-        }
-        .file-tag .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-        .file-tag .remove {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #cbd5e0;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            cursor: pointer;
-        }
-        .chart-container {
-            background: white;
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        }
-        .chart-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #4a5568;
-            margin-bottom: 8px;
-            padding-left: 4px;
-        }
-        canvas {
-            width: 100%;
-            display: block;
-            touch-action: none;
-        }
-        .hint {
-            font-size: 11px;
-            color: #a0aec0;
-            text-align: center;
-            margin-top: 8px;
-        }
-        .mode-toggle {
-            display: flex;
-            background: #edf2f7;
-            border-radius: 8px;
-            padding: 3px;
-            margin-bottom: 12px;
-        }
-        .mode-toggle .mode-btn {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: 6px;
-            border: none;
-            background: transparent;
-            color: #718096;
-            cursor: pointer;
-        }
-        .mode-toggle .mode-btn.active {
-            background: white;
-            color: #667eea;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-    </style>
+/* S参数分析布局 */
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:260px;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-title{padding:12px 14px;font-size:13px;font-weight:600;color:#4a5568;border-bottom:1px solid #edf2f7;background:#fafbfc}
+.file-list{flex:1;overflow-y:auto;padding:6px}
+.file-row{display:flex;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;gap:6px;margin-bottom:2px;user-select:none}
+.file-row:hover{background:#f7fafc}
+.file-row.selected{background:#cce5ff}
+.file-row .chk{width:14px;height:14px;cursor:pointer}
+.file-row .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.file-row .fname{font-size:12px;color:#2d3748;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.file-row .del{width:16px;height:16px;border-radius:50%;background:#e2e8f0;color:#718096;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;flex-shrink:0}
+.file-row .del:hover{background:#fc8181;color:#fff}
+.sidebar-btns{padding:10px;display:flex;gap:6px;border-top:1px solid #edf2f7}
+.sidebar-btns button{flex:1;padding:6px;font-size:11px;border:1px solid #e2e8f0;background:#fff;border-radius:4px;cursor:pointer;color:#4a5568}
+.sidebar-btns button:hover{background:#f7fafc}
+.chart-area{flex:1;overflow-y:auto;padding:12px;background:#f5f6fa}
+.chart-wrap{background:#fff;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);position:relative}
+.chart-title{font-size:12px;font-weight:600;color:#4a5568;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.chart-title .legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chart-title .legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#718096;font-weight:500}
+.chart-title .legend-color{width:8px;height:8px;border-radius:2px}
+canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
+.status-bar{padding:6px 14px;background:#fff;border-top:1px solid #e2e8f0;font-size:11px;color:#718096;flex-shrink:0}
+
+/* Calculator */
+.calc-area{flex:1;overflow-y:auto;padding:16px;background:#f5f6fa}
+.calc-card{background:#fff;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);max-width:520px;margin-left:auto;margin-right:auto}
+.calc-title{font-size:16px;font-weight:600;color:#2d3748;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #edf2f7}
+.input-group{margin-bottom:12px}
+.input-group label{display:block;font-size:13px;color:#718096;margin-bottom:6px;font-weight:500}
+.input-group input{width:100%;padding:12px 14px;font-size:16px;border:1.5px solid #e2e8f0;border-radius:10px;outline:none;background:#fafbfc;-webkit-appearance:none}
+.input-group input:focus{border-color:#667eea;background:#fff}
+.result-box{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:14px;border-radius:12px;margin-top:12px;text-align:center}
+.result-label{font-size:12px;opacity:.9;margin-bottom:4px}
+.result-value{font-size:26px;font-weight:700;font-family:"SF Mono",Monaco,monospace}
+.formula{font-size:11px;color:#a0aec0;margin-top:6px;text-align:center;font-family:monospace}
+.mode-toggle{display:flex;background:#edf2f7;border-radius:8px;padding:3px;margin-bottom:12px}
+.mode-toggle .mode-btn{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:500;border-radius:6px;border:none;background:transparent;color:#718096;cursor:pointer}
+.mode-toggle .mode-btn.active{background:#fff;color:#667eea;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+/* Dialog */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center}
+.dialog{background:#fff;border-radius:12px;padding:20px;width:90%;max-width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+.dialog h3{font-size:15px;margin-bottom:14px;color:#2d3748}
+.dialog-row{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.dialog-row label{width:90px;font-size:12px;color:#718096;flex-shrink:0}
+.dialog-row input,.dialog-row select{flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px}
+.dialog-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+.dialog-table th,.dialog-table td{padding:6px 8px;text-align:center;border-bottom:1px solid #edf2f7}
+.dialog-table th{background:#f7fafc;color:#4a5568;font-weight:600}
+.dialog-table tr:hover{background:#f7fafc;cursor:pointer}
+.dialog-table tr.active{background:#cce5ff}
+.dialog-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.dialog-btns button{padding:8px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer}
+.dialog-btns .primary{background:#667eea;color:#fff}
+.dialog-btns .secondary{background:#edf2f7;color:#4a5568}
+
+/* Context menu */
+.ctx-menu{position:fixed;background:#fff;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:2000;min-width:140px;padding:4px 0;font-size:12px}
+.ctx-menu-item{padding:8px 14px;cursor:pointer;color:#2d3748}
+.ctx-menu-item:hover{background:#f7fafc}
+.ctx-menu-sep{border-top:1px solid #edf2f7;margin:4px 0}
+
+.s2p-wrap{max-width:900px;margin:0 auto}
+</style>
+<base target="_blank">
 </head>
 <body>
-    <div class="header">📱 RF 工具箱</div>
+<div class="header">
+  <span>📱 RF 工具箱</span>
+  <input type="file" id="fileInput" accept=".s1p,.s2p" multiple style="display:none" onchange="handleFiles(event)">
+  <button class="btn" onclick="document.getElementById('fileInput').click()">+ 打开文件</button>
+  <button class="btn" onclick="saveImage()">💾 保存图像</button>
+  <button class="btn" id="toggleZBtn" onclick="toggleZScale()" style="display:none">切换 dBΩ/Ω</button>
+  <button class="btn" onclick="resetView()">⟲ 重置视图</button>
+</div>
 
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('calc')">计算器</div>
-        <div class="tab" onclick="switchTab('snp')">S参数分析</div>
+<div class="tabbar">
+  <div class="tabitem active" onclick="switchTab('snp')">S参数分析</div>
+  <div class="tabitem" onclick="switchTab('calc')">计算器</div>
+</div>
+
+<div id="panel-snp" class="tabpanel active">
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-title">已加载文件</div>
+      <div class="file-list" id="fileList"></div>
+      <div class="sidebar-btns">
+        <button onclick="showAllFiles()">显示全部</button>
+        <button onclick="hideAllFiles()">隐藏全部</button>
+        <button onclick="deleteSelectedFiles()">删除选中</button>
+      </div>
+    </div>
+    <div class="chart-area" id="chartArea">
+      <div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">
+        点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>
+        支持 RI / MA / DB 格式 · 支持批量叠加
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-calc" class="tabpanel">
+  <div class="calc-area">
+    <div class="calc-card">
+      <div class="calc-title">keff² 计算</div>
+      <div class="input-group">
+        <label>fs (MHz)</label>
+        <input type="number" id="fs" step="any" placeholder="输入 fs">
+      </div>
+      <div class="input-group">
+        <label>fp (MHz)</label>
+        <input type="number" id="fp" step="any" placeholder="输入 fp">
+      </div>
+      <div class="result-box" id="keff2-result" style="display:none">
+        <div class="result-label">keff² (%)</div>
+        <div class="result-value" id="keff2-value">-</div>
+      </div>
+      <div class="formula">k²eff = 2.4674 × fs/fp × (fp−fs)/fp × 100</div>
     </div>
 
-    <!-- 计算器 Tab -->
-    <div id="tab-calc" class="tab-content active">
-        <div class="card">
-            <div class="card-title">keff² 计算</div>
-            <div class="input-group">
-                <label>fs (MHz)</label>
-                <input type="number" id="fs" step="any" placeholder="输入 fs">
-            </div>
-            <div class="input-group">
-                <label>fp (MHz)</label>
-                <input type="number" id="fp" step="any" placeholder="输入 fp">
-            </div>
-            <div class="result-box" id="keff2-result" style="display:none;">
-                <div class="result-label">keff² (%)</div>
-                <div class="result-value" id="keff2-value">-</div>
-            </div>
-            <div class="formula">k²eff = 2.4674 × fs/fp × (fp−fs)/fp × 100</div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">dB ↔ Ohm 换算</div>
-            <div class="mode-toggle">
-                <button class="mode-btn active" id="mode-ohm-db" onclick="setConvertMode('ohm-to-db')">Ohm → dB</button>
-                <button class="mode-btn" id="mode-db-ohm" onclick="setConvertMode('db-to-ohm')">dB → Ohm</button>
-            </div>
-            <div class="input-group">
-                <label id="conv-input-label">Ohm (Ω)</label>
-                <input type="number" id="conv-input" step="any" placeholder="输入数值">
-            </div>
-            <div class="result-box" id="conv-result" style="display:none;">
-                <div class="result-label" id="conv-output-label">dB</div>
-                <div class="result-value" id="conv-output">-</div>
-            </div>
-            <div class="formula" id="conv-formula">dB = 20 × log₁₀(Ohm)</div>
-        </div>
+    <div class="calc-card">
+      <div class="calc-title">dB ↔ Ohm 换算</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-ohm-db" onclick="setConvertMode('ohm-to-db')">Ohm → dB</button>
+        <button class="mode-btn" id="mode-db-ohm" onclick="setConvertMode('db-to-ohm')">dB → Ohm</button>
+      </div>
+      <div class="input-group">
+        <label id="conv-input-label">Ohm (Ω)</label>
+        <input type="number" id="conv-input" step="any" placeholder="输入数值">
+      </div>
+      <div class="result-box" id="conv-result" style="display:none">
+        <div class="result-label" id="conv-output-label">dB</div>
+        <div class="result-value" id="conv-output">-</div>
+      </div>
+      <div class="formula" id="conv-formula">dB = 20 × log₁₀(Ohm)</div>
     </div>
+  </div>
+</div>
 
-    <!-- S参数分析 Tab -->
-    <div id="tab-snp" class="tab-content">
-        <div class="card">
-            <div class="card-title">导入 S参数文件</div>
-            <div class="file-input-wrapper">
-                <div class="file-btn">+ 选择 .s1p / .s2p 文件</div>
-                <input type="file" id="snp-file" accept=".s1p,.s2p" multiple onchange="handleFiles(event)">
-            </div>
-            <div class="hint">支持批量导入，同类型文件自动叠加显示</div>
-            <div class="file-tags" id="file-tags"></div>
-        </div>
-
-        <div id="s1p-charts" style="display:none;">
-            <div class="chart-container">
-                <div class="chart-title">|Z| 阻抗幅度 (dBΩ)</div>
-                <canvas id="canvas-z" height="280"></canvas>
-            </div>
-            <div class="chart-container">
-                <div class="chart-title">Smith Chart (S₁₁)</div>
-                <canvas id="canvas-smith" height="300"></canvas>
-            </div>
-        </div>
-
-        <div id="s2p-charts" style="display:none;">
-            <div class="chart-container">
-                <div class="chart-title">|S₂₁| 插损/增益 (dB)</div>
-                <canvas id="canvas-s21" height="320"></canvas>
-            </div>
-        </div>
-    </div>
+<div class="status-bar" id="statusBar">就绪</div>
 
 <script>
-// ==================== Tab 切换 ====================
-function switchTab(name) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById('tab-' + name).classList.add('active');
+// ==================== Tab Switch ====================
+function switchTab(name){
+  document.querySelectorAll('.tabitem').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tabpanel').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
 }
 
-// ==================== keff² 计算 ====================
-const fsInput = document.getElementById('fs');
-const fpInput = document.getElementById('fp');
-const keff2Result = document.getElementById('keff2-result');
-const keff2Value = document.getElementById('keff2-value');
-
-function calcKeff2() {
-    const fs = parseFloat(fsInput.value);
-    const fp = parseFloat(fpInput.value);
-    if (!isNaN(fs) && !isNaN(fp) && fp !== 0 && fs > 0 && fp > 0) {
-        const keff2 = 2.46740110027233 * (fs / fp) * ((fp - fs) / fp) * 100;
-        keff2Value.textContent = keff2.toFixed(4);
-        keff2Result.style.display = 'block';
-    } else {
-        keff2Result.style.display = 'none';
-    }
+// ==================== Calculator ====================
+const fsInput=document.getElementById('fs'),fpInput=document.getElementById('fp');
+const keff2Result=document.getElementById('keff2-result'),keff2Value=document.getElementById('keff2-value');
+function calcKeff2(){
+  const fs=parseFloat(fsInput.value),fp=parseFloat(fpInput.value);
+  if(!isNaN(fs)&&!isNaN(fp)&&fp!==0&&fs>0&&fp>0){
+    keff2Value.textContent=(2.46740110027233*(fs/fp)*((fp-fs)/fp)*100).toFixed(4);
+    keff2Result.style.display='block';
+  }else{keff2Result.style.display='none';}
 }
-fsInput.addEventListener('input', calcKeff2);
-fpInput.addEventListener('input', calcKeff2);
+fsInput.addEventListener('input',calcKeff2);fpInput.addEventListener('input',calcKeff2);
 
-// ==================== dB-Ohm 换算 ====================
-let convMode = 'ohm-to-db';
-const convInput = document.getElementById('conv-input');
-const convResult = document.getElementById('conv-result');
-const convOutput = document.getElementById('conv-output');
-const convInputLabel = document.getElementById('conv-input-label');
-const convOutputLabel = document.getElementById('conv-output-label');
-const convFormula = document.getElementById('conv-formula');
-
-function setConvertMode(mode) {
-    convMode = mode;
-    document.getElementById('mode-ohm-db').classList.toggle('active', mode === 'ohm-to-db');
-    document.getElementById('mode-db-ohm').classList.toggle('active', mode === 'db-to-ohm');
-    if (mode === 'ohm-to-db') {
-        convInputLabel.textContent = 'Ohm (Ω)';
-        convOutputLabel.textContent = 'dB';
-        convFormula.textContent = 'dB = 20 × log₁₀(Ohm)';
-    } else {
-        convInputLabel.textContent = 'dB';
-        convOutputLabel.textContent = 'Ohm (Ω)';
-        convFormula.textContent = 'Ohm = 10^(dB / 20)';
-    }
-    convInput.value = '';
-    convResult.style.display = 'none';
+let convMode='ohm-to-db';
+const convInput=document.getElementById('conv-input'),convResult=document.getElementById('conv-result');
+const convOutput=document.getElementById('conv-output'),convInputLabel=document.getElementById('conv-input-label');
+const convOutputLabel=document.getElementById('conv-output-label'),convFormula=document.getElementById('conv-formula');
+function setConvertMode(mode){
+  convMode=mode;
+  document.getElementById('mode-ohm-db').classList.toggle('active',mode==='ohm-to-db');
+  document.getElementById('mode-db-ohm').classList.toggle('active',mode==='db-to-ohm');
+  if(mode==='ohm-to-db'){convInputLabel.textContent='Ohm (Ω)';convOutputLabel.textContent='dB';convFormula.textContent='dB = 20 × log₁₀(Ohm)';}
+  else{convInputLabel.textContent='dB';convOutputLabel.textContent='Ohm (Ω)';convFormula.textContent='Ohm = 10^(dB / 20)';}
+  convInput.value='';convResult.style.display='none';
 }
-
-function calcConvert() {
-    const val = parseFloat(convInput.value);
-    if (!isNaN(val) && val > 0) {
-        if (convMode === 'ohm-to-db') {
-            convOutput.textContent = (20 * Math.log10(val)).toFixed(4) + ' dB';
-        } else {
-            convOutput.textContent = Math.pow(10, val / 20).toFixed(4) + ' Ω';
-        }
-        convResult.style.display = 'block';
-    } else {
-        convResult.style.display = 'none';
-    }
+function calcConvert(){
+  const val=parseFloat(convInput.value);
+  if(!isNaN(val)&&val>0){
+    if(convMode==='ohm-to-db')convOutput.textContent=(20*Math.log10(val)).toFixed(4)+' dB';
+    else convOutput.textContent=Math.pow(10,val/20).toFixed(4)+' Ω';
+    convResult.style.display='block';
+  }else{convResult.style.display='none';}
 }
-convInput.addEventListener('input', calcConvert);
+convInput.addEventListener('input',calcConvert);
 
 // ==================== S参数分析 ====================
-const COLORS = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9ff3','#54a0ff','#5f27cd','#00d2d3'];
-let fileStore = {}; // {filename: {type, data, color}}
-let currentType = null; // 's1p' or 's2p'
+const COLORS=['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9ff3','#54a0ff','#5f27cd','#00d2d3'];
+let fileStore={},currentType=null,zScaleMode='db';
+let markers=[],selectedFiles=new Set(),lastClickedFile=null;
+let zoomState={};
 
-function handleFiles(event) {
-    const files = Array.from(event.target.files);
-    if (!files.length) return;
+function handleFiles(e){
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  const types=new Set(files.map(f=>f.name.toLowerCase().endsWith('.s2p')?'s2p':'s1p'));
+  if(types.size>1){alert('请选择同一类型文件');return;}
+  const newType=Array.from(types)[0];
+  if(currentType&&currentType!==newType){
+    if(!confirm(`当前已加载 ${currentType.toUpperCase()}，导入将清空现有数据，继续？`))return;
+    clearAll();
+  }
+  currentType=newType;
+  document.getElementById('toggleZBtn').style.display=currentType==='s1p'?'inline-block':'none';
+  let idx=Object.keys(fileStore).length;
+  files.forEach(file=>{
+    const r=new FileReader();
+    r.onload=function(ev){
+      try{const d=parseSNP(ev.target.result,file.name);const c=COLORS[idx%COLORS.length];fileStore[file.name]={type:newType,data:d,color:c,visible:true};idx++;updateFileList();drawAll();setStatus(`已加载 ${Object.keys(fileStore).length} 个文件`);}
+      catch(err){alert('解析失败: '+file.name+'\n'+err.message);}
+    };
+    r.readAsText(file);
+  });
+  e.target.value='';
+}
 
-    const types = new Set(files.map(f => f.name.toLowerCase().endsWith('.s2p') ? 's2p' : 's1p'));
-    if (types.size > 1) {
-        alert('请同时选择同一类型的文件（全部.s1p 或 全部.s2p）');
-        return;
+function parseSNP(text,name){
+  const lines=text.split(/\r?\n/);
+  let fUnit='Hz',fmt='RI',z0=50,scale=1;
+  const data=[];
+  for(let raw of lines){
+    let line=raw.trim();
+    if(!line||line.startsWith('!'))continue;
+    if(line.startsWith('#')){
+      const p=line.substring(1).trim().toUpperCase().split(/\s+/);
+      for(let x of p){if(['HZ','KHZ','MHZ','GHZ'].includes(x))fUnit=x;if(['RI','MA','DB'].includes(x))fmt=x;if(x.startsWith('R'))z0=parseFloat(x.substring(1))||50;}
+      scale=fUnit==='HZ'?1:(fUnit==='KHZ'?1e3:(fUnit==='MHZ'?1e6:1e9));
+      continue;
     }
-    const newType = Array.from(types)[0];
-    if (currentType && currentType !== newType) {
-        if (!confirm(`当前已加载 ${currentType.toUpperCase()} 文件，导入新文件将清空现有数据，继续？`)) {
-            return;
-        }
-        clearAllData();
+    const n=line.split(/\s+/).map(Number).filter(v=>!isNaN(v));
+    if(n.length<3)continue;
+    const fHz=n[0]*scale,fGHz=fHz/1e9;
+    if(name.toLowerCase().endsWith('.s1p')){
+      let re=n[1],im=n[2];
+      if(fmt==='MA'){const ph=n[2]*Math.PI/180;re=n[1]*Math.cos(ph);im=n[1]*Math.sin(ph);}
+      else if(fmt==='DB'){const mg=Math.pow(10,n[1]/20);const ph=n[2]*Math.PI/180;re=mg*Math.cos(ph);im=mg*Math.sin(ph);}
+      const m1p=Math.sqrt((1+re)**2+im**2),m1m=Math.sqrt((1-re)**2+im**2);
+      const zAbs=z0*m1p/m1m,zDB=20*Math.log10(zAbs);
+      data.push({f:fGHz,s:{re,im},zAbs,zDB});
+    }else{
+      let s21re=n[3],s21im=n[4];
+      if(fmt==='MA'){const ph=n[4]*Math.PI/180;s21re=n[3]*Math.cos(ph);s21im=n[3]*Math.sin(ph);}
+      else if(fmt==='DB'){const mg=Math.pow(10,n[3]/20);const ph=n[4]*Math.PI/180;s21re=mg*Math.cos(ph);s21im=mg*Math.sin(ph);}
+      const s21dB=20*Math.log10(Math.sqrt(s21re*s21re+s21im*s21im));
+      data.push({f:fGHz,s21:{re:s21re,im:s21im},s21dB});
     }
-    currentType = newType;
-
-    let colorIdx = Object.keys(fileStore).length;
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = parseSNP(e.target.result, file.name);
-                const color = COLORS[colorIdx % COLORS.length];
-                fileStore[file.name] = { type: newType, data, color };
-                colorIdx++;
-                updateFileTags();
-                drawCharts();
-            } catch (err) {
-                alert('解析失败: ' + file.name + '\n' + err.message);
-            }
-        };
-        reader.readAsText(file);
-    });
-    event.target.value = '';
+  }
+  if(data.length===0)throw new Error('无有效数据');
+  return data;
 }
 
-function clearAllData() {
-    fileStore = {};
-    currentType = null;
-    updateFileTags();
-    document.getElementById('s1p-charts').style.display = 'none';
-    document.getElementById('s2p-charts').style.display = 'none';
-    ['canvas-z','canvas-smith','canvas-s21'].forEach(id => {
-        const c = document.getElementById(id);
-        if (c) {
-            const ctx = c.getContext('2d');
-            ctx.clearRect(0, 0, c.width, c.height);
-        }
-    });
+function calcBodeQ(data){
+  const N=data.length;
+  if(N<5)return data.map(()=>NaN);
+  const freqs=data.map(d=>d.f*1e9);
+  let ph=data.map(d=>Math.atan2(d.s.im,d.s.re));
+  for(let i=1;i<N;i++){let diff=ph[i]-ph[i-1];while(diff>Math.PI)diff-=2*Math.PI;while(diff<-Math.PI)diff+=2*Math.PI;ph[i]=ph[i-1]+diff;}
+  const gd=new Array(N);
+  gd[0]=-(ph[1]-ph[0])/(2*Math.PI*(freqs[1]-freqs[0]));
+  for(let i=1;i<N-1;i++)gd[i]=-(ph[i+1]-ph[i-1])/(2*Math.PI*(freqs[i+1]-freqs[i-1]));
+  gd[N-1]=-(ph[N-1]-ph[N-2])/(2*Math.PI*(freqs[N-1]-freqs[N-2]));
+  const out=new Array(N);
+  for(let i=0;i<N;i++){
+    const sm=Math.sqrt(data[i].s.re**2+data[i].s.im**2);
+    const den=1-sm*sm;
+    if(den>1e-6&&den<1)out[i]=Math.abs(2*Math.PI*freqs[i]*gd[i]*sm/den);
+    else out[i]=NaN;
+  }
+  const w=Math.min(11,Math.floor(N/10)*2+1);
+  if(w>3){const half=Math.floor(w/2);for(let i=half;i<N-half;i++){let sum=0,cnt=0;for(let j=i-half;j<=i+half;j++)if(!isNaN(out[j])){sum+=out[j];cnt++;}if(cnt>0)out[i]=sum/cnt;}}
+  return out;
 }
 
-function removeFile(name) {
-    delete fileStore[name];
-    if (Object.keys(fileStore).length === 0) currentType = null;
-    updateFileTags();
-    drawCharts();
+function clearAll(){
+  fileStore={};currentType=null;markers=[];selectedFiles.clear();lastClickedFile=null;zoomState={};
+  document.getElementById('toggleZBtn').style.display='none';
+  updateFileList();
+  document.getElementById('chartArea').innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>支持 RI / MA / DB 格式 · 支持批量叠加</div>';
+  setStatus('已清空');
 }
 
-function updateFileTags() {
-    const container = document.getElementById('file-tags');
-    container.innerHTML = '';
-    Object.entries(fileStore).forEach(([name, info]) => {
-        const tag = document.createElement('div');
-        tag.className = 'file-tag';
-        tag.innerHTML = `<span class="dot" style="background:${info.color}"></span>${name}<span class="remove" onclick="removeFile('${name}')">×</span>`;
-        container.appendChild(tag);
-    });
+function updateFileList(){
+  const box=document.getElementById('fileList');box.innerHTML='';
+  Object.entries(fileStore).forEach(([name,info])=>{
+    const row=document.createElement('div');row.className='file-row'+(selectedFiles.has(name)?' selected':'');
+    row.innerHTML=`<input type="checkbox" class="chk" ${info.visible?'checked':''} onclick="event.stopPropagation();toggleVis('${name}')">
+      <div class="dot" style="background:${info.color}"></div>
+      <div class="fname" title="${name}">${name}</div>
+      <div class="del" onclick="event.stopPropagation();removeFile('${name}')">×</div>`;
+    row.onclick=(e)=>onFileClick(e,name);
+    row.oncontextmenu=(e)=>{e.preventDefault();showFileCtx(e,name);};
+    box.appendChild(row);
+  });
 }
 
-// ==================== Touchstone 解析 ====================
-function parseSNP(text, filename) {
-    const lines = text.split(/\r?\n/);
-    let freqUnit = 'Hz', param = 'S', format = 'RI', z0 = 50;
-    const data = [];
-    let freqScale = 1;
+function onFileClick(e,name){
+  if(e.ctrlKey||e.metaKey){selectedFiles.has(name)?selectedFiles.delete(name):selectedFiles.add(name);}
+  else if(e.shiftKey&&lastClickedFile){const keys=Object.keys(fileStore);const i1=keys.indexOf(lastClickedFile),i2=keys.indexOf(name);const [a,b]=[Math.min(i1,i2),Math.max(i1,i2)];for(let i=a;i<=b;i++)selectedFiles.add(keys[i]);}
+  else{selectedFiles.clear();selectedFiles.add(name);}
+  lastClickedFile=name;updateFileList();
+}
+function toggleVis(name){if(fileStore[name]){fileStore[name].visible=!fileStore[name].visible;updateFileList();drawAll();}}
+function showAllFiles(){Object.values(fileStore).forEach(f=>f.visible=true);updateFileList();drawAll();}
+function hideAllFiles(){Object.values(fileStore).forEach(f=>f.visible=false);updateFileList();drawAll();}
+function removeFile(name){delete fileStore[name];selectedFiles.delete(name);markers=markers.filter(m=>m.name!==name);if(Object.keys(fileStore).length===0)currentType=null;updateFileList();drawAll();}
+function deleteSelectedFiles(){selectedFiles.forEach(n=>{delete fileStore[n];markers=markers.filter(m=>m.name!==n);});selectedFiles.clear();if(Object.keys(fileStore).length===0)currentType=null;updateFileList();drawAll();}
+function setStatus(s){document.getElementById('statusBar').textContent=s;}
 
-    for (let raw of lines) {
-        let line = raw.trim();
-        if (!line || line.startsWith('!')) continue;
-        if (line.startsWith('#')) {
-            const parts = line.substring(1).trim().toUpperCase().split(/\s+/);
-            for (let p of parts) {
-                if (['HZ','KHZ','MHZ','GHZ'].includes(p)) freqUnit = p;
-                if (['S','Y','Z','H','G'].includes(p)) param = p;
-                if (['RI','MA','DB'].includes(p)) format = p;
-                if (p.startsWith('R')) z0 = parseFloat(p.substring(1)) || 50;
-            }
-            if (freqUnit === 'HZ') freqScale = 1;
-            else if (freqUnit === 'KHZ') freqScale = 1e3;
-            else if (freqUnit === 'MHZ') freqScale = 1e6;
-            else if (freqUnit === 'GHZ') freqScale = 1e9;
-            continue;
-        }
-        const nums = line.split(/\s+/).map(Number).filter(n => !isNaN(n));
-        if (nums.length < 3) continue;
-
-        const freqHz = nums[0] * freqScale;
-        const freqGHz = freqHz / 1e9;
-
-        if (filename.toLowerCase().endsWith('.s1p')) {
-            let re = nums[1], im = nums[2];
-            if (format === 'MA') {
-                const phase = nums[2] * Math.PI / 180;
-                re = nums[1] * Math.cos(phase);
-                im = nums[1] * Math.sin(phase);
-            } else if (format === 'DB') {
-                const mag = Math.pow(10, nums[1] / 20);
-                const phase = nums[2] * Math.PI / 180;
-                re = mag * Math.cos(phase);
-                im = mag * Math.sin(phase);
-            }
-            // Z = Z0 * (1+S)/(1-S), |Z| = Z0 * |1+S| / |1-S|
-            const mag1pS = Math.sqrt((1+re)*(1+re) + im*im);
-            const mag1mS = Math.sqrt((1-re)*(1-re) + im*im);
-            const zAbs = z0 * mag1pS / mag1mS;
-            const zDB = 20 * Math.log10(zAbs);
-            data.push({freq: freqGHz, s11: {re, im}, zAbs, zDB});
-        } else {
-            let s21re = nums[3], s21im = nums[4];
-            if (format === 'MA') {
-                const phase = nums[4] * Math.PI / 180;
-                s21re = nums[3] * Math.cos(phase);
-                s21im = nums[3] * Math.sin(phase);
-            } else if (format === 'DB') {
-                const mag = Math.pow(10, nums[3] / 20);
-                const phase = nums[4] * Math.PI / 180;
-                s21re = mag * Math.cos(phase);
-                s21im = mag * Math.sin(phase);
-            }
-            const s21dB = 20 * Math.log10(Math.sqrt(s21re*s21re + s21im*s21im));
-            data.push({freq: freqGHz, s21: {re: s21re, im: s21im}, s21dB});
-        }
-    }
-    if (data.length === 0) throw new Error('未找到有效数据');
-    return data;
+// ========== Canvas Engine ==========
+function setupCanvas(id,h){
+  let el=document.getElementById(id);
+  if(!el){el=document.createElement('canvas');el.id=id;}
+  const dpr=window.devicePixelRatio||1;
+  const rect=el.getBoundingClientRect();
+  const w=rect.width||el.parentElement.clientWidth;
+  el.width=(w||600)*dpr;el.height=(h||280)*dpr;
+  el.style.width=(w||600)+'px';el.style.height=(h||280)+'px';
+  const ctx=el.getContext('2d');ctx.scale(dpr,dpr);
+  return{ctx,w:w||600,h:h||280,dpr};
 }
 
-// ==================== 绘图引擎 ====================
-function setupCanvas(id) {
-    const canvas = document.getElementById(id);
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    return {canvas, ctx, width: rect.width, height: rect.height};
+function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL){
+  const pad={l:50,r:15,t:15,b:38};
+  const Gw=W-pad.l-pad.r,Gh=H-pad.t-pad.b;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const x=pad.l+Gw*i/5;
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+Gh);ctx.stroke();
+    const v=xMin+(xMax-xMin)*i/5;
+    ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='center';
+    ctx.fillText(v.toFixed(2),x,pad.t+Gh+18);
+  }
+  for(let i=0;i<=5;i++){
+    const y=pad.t+Gh-Gh*i/5;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+Gw,y);ctx.stroke();
+    const v=yMin+(yMax-yMin)*i/5;
+    ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='right';
+    const dec=(yMax-yMin)>10?0:((yMax-yMin)>1?1:2);
+    ctx.fillText(v.toFixed(dec),pad.l-6,y+3);
+  }
+  ctx.strokeStyle='#a0aec0';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+Gh);ctx.lineTo(pad.l+Gw,pad.t+Gh);ctx.stroke();
+  if(xL){ctx.fillStyle='#4a5568';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText(xL,pad.l+Gw/2,H-4);}
+  if(yL){ctx.save();ctx.translate(14,pad.t+Gh/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='#4a5568';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText(yL,0,0);ctx.restore();}
+  return{pad,Gw,Gh};
 }
+const mx=(v,x1,x2,p,W)=>(v-x1)/(x2-x1)*W+p.l;
+const my=(v,y1,y2,p,H)=>p.t+H-(v-y1)/(y2-y1)*H;
 
-function drawGrid(ctx, width, height, xMin, xMax, yMin, yMax, xLabel, yLabel) {
-    const pad = {l: 48, r: 15, t: 15, b: 38};
-    const W = width - pad.l - pad.r;
-    const H = height - pad.t - pad.b;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    const xSteps = 5, ySteps = 5;
-    for (let i = 0; i <= xSteps; i++) {
-        const x = pad.l + (W * i / xSteps);
-        ctx.beginPath();
-        ctx.moveTo(x, pad.t);
-        ctx.lineTo(x, pad.t + H);
-        ctx.stroke();
-        const val = xMin + (xMax - xMin) * i / xSteps;
-        ctx.fillStyle = '#718096';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(val.toFixed(2), x, pad.t + H + 18);
-    }
-    for (let i = 0; i <= ySteps; i++) {
-        const y = pad.t + H - (H * i / ySteps);
-        ctx.beginPath();
-        ctx.moveTo(pad.l, y);
-        ctx.lineTo(pad.l + W, y);
-        ctx.stroke();
-        const val = yMin + (yMax - yMin) * i / ySteps;
-        ctx.fillStyle = '#718096';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'right';
-        const decimals = (yMax - yMin) > 10 ? 0 : ((yMax - yMin) > 1 ? 1 : 2);
-        ctx.fillText(val.toFixed(decimals), pad.l - 6, y + 3);
-    }
-
-    ctx.strokeStyle = '#a0aec0';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(pad.l, pad.t);
-    ctx.lineTo(pad.l, pad.t + H);
-    ctx.lineTo(pad.l + W, pad.t + H);
+function drawLineChart(cid,h,datasets,xL,yL,axKey){
+  const{ctx,w,h:H}=setupCanvas(cid,h);
+  if(!datasets.length)return;
+  let x1=Infinity,x2=-Infinity,y1=Infinity,y2=-Infinity;
+  datasets.forEach(ds=>ds.data.forEach(p=>{if(p.x<x1)x1=p.x;if(p.x>x2)x2=p.x;if(p.y<y1)y1=p.y;if(p.y>y2)y2=p.y;}));
+  const xm=(x2-x1)*0.02||0.1,ym=(y2-y1)*0.1||1;
+  x1-=xm;x2+=xm;y1-=ym;y2+=ym;
+  if(zScaleMode==='log'&&yL.includes('Ω')&&!yL.includes('dB')){if(y1<=0)y1=1e-6;}
+  const g=drawGrid(ctx,w,H,x1,x2,y1,y2,xL,yL);
+  if(!zoomState[axKey])zoomState[axKey]={xlim:[x1,x2],ylim:[y1,y2]};
+  const zs=zoomState[axKey];
+  datasets.forEach(ds=>{
+    ctx.strokeStyle=ds.color;ctx.lineWidth=2;ctx.beginPath();
+    ds.data.forEach((p,i)=>{const x=mx(p.x,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);const y=my(p.y,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
     ctx.stroke();
-
-    if (xLabel) {
-        ctx.fillStyle = '#4a5568';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(xLabel, pad.l + W/2, height - 4);
-    }
-    if (yLabel) {
-        ctx.save();
-        ctx.translate(14, pad.t + H/2);
-        ctx.rotate(-Math.PI/2);
-        ctx.fillStyle = '#4a5568';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(yLabel, 0, 0);
-        ctx.restore();
-    }
-    return {pad, W, H};
+  });
+  markers.forEach(m=>{
+    const info=fileStore[m.name];if(!info||!info.visible)return;
+    const d=info.data[m.idx];if(!d)return;
+    let px,py;
+    if(axKey==='z'){px=d.f;py=zScaleMode==='db'?d.zDB:d.zAbs;}
+    else if(axKey==='s21'){px=d.f;py=d.s21dB;}
+    else if(axKey==='bodeq'){px=d.f;py=m.bodeqVal;}
+    if(px===undefined)return;
+    const x=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
+    const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
+    ctx.fillStyle='#ff0000';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`${px.toFixed(3)}G\n${py.toFixed(2)}`,x+8,y-5);
+  });
+  bindBoxZoom(cid,axKey,zs,g);
 }
 
-function mapX(val, xMin, xMax, pad, W) { return pad.l + (val - xMin) / (xMax - xMin) * W; }
-function mapY(val, yMin, yMax, pad, H) { return pad.t + H - (val - yMin) / (yMax - yMin) * H; }
-
-function drawLineChart(canvasId, datasets, xLabel, yLabel) {
-    const {ctx, width, height} = setupCanvas(canvasId);
-    if (!datasets.length) return;
-
-    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-    datasets.forEach(ds => {
-        ds.data.forEach(p => {
-            if (p.x < xMin) xMin = p.x;
-            if (p.x > xMax) xMax = p.x;
-            if (p.y < yMin) yMin = p.y;
-            if (p.y > yMax) yMax = p.y;
-        });
-    });
-    const xMargin = (xMax - xMin) * 0.02 || 0.1;
-    const yMargin = (yMax - yMin) * 0.1 || 1;
-    xMin -= xMargin; xMax += xMargin;
-    yMin -= yMargin; yMax += yMargin;
-
-    const grid = drawGrid(ctx, width, height, xMin, xMax, yMin, yMax, xLabel, yLabel);
-
-    datasets.forEach(ds => {
-        ctx.strokeStyle = ds.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ds.data.forEach((p, i) => {
-            const x = mapX(p.x, xMin, xMax, grid.pad, grid.W);
-            const y = mapY(p.y, yMin, yMax, grid.pad, grid.H);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    });
-}
-
-function drawSmithChart(canvasId, datasets) {
-    const {ctx, width, height} = setupCanvas(canvasId);
-    const cx = width / 2, cy = height / 2;
-    const R = Math.min(width, height) * 0.42;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-
-    // 单位圆
-    ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+function drawSmithChart(cid,h,datasets){
+  const{ctx,w,H}=setupCanvas(cid,h);
+  const cx=w/2,cy=H/2,R=Math.min(w,H)*0.40;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,H);
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  [0,0.2,0.5,1,2,5].forEach(r=>{
+    if(r===0){ctx.beginPath();ctx.moveTo(cx-R,cy);ctx.lineTo(cx+R,cy);ctx.stroke();}
+    else{const cX=cx+R*r/(r+1),rad=R/(r+1);ctx.beginPath();ctx.arc(cX,cy,rad,0,Math.PI*2);ctx.stroke();}
+  });
+  [0.5,1,2].forEach(x=>{
+    const rad=R/Math.abs(x);
+    ctx.beginPath();ctx.arc(cx+R,cy-R/x,rad,Math.PI*0.5,Math.PI);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx+R,cy+R/x,rad,Math.PI,Math.PI*1.5);ctx.stroke();
+  });
+  ctx.strokeStyle='#a0aec0';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx-R-5,cy);ctx.lineTo(cx+R+5,cy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-R-5);ctx.lineTo(cx,cy+R+5);ctx.stroke();
+  ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='center';
+  ctx.fillText('Re(Γ)',cx+R+22,cy+3);ctx.fillText('Im(Γ)',cx+5,cy-R-12);
+  datasets.forEach(ds=>{
+    ctx.strokeStyle=ds.color;ctx.lineWidth=2;ctx.beginPath();
+    ds.data.forEach((p,i)=>{const x=cx+p.re*R,y=cy-p.im*R;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
     ctx.stroke();
-
-    // 等电阻圆
-    [0, 0.2, 0.5, 1, 2, 5].forEach(r => {
-        if (r === 0) {
-            ctx.beginPath();
-            ctx.moveTo(cx - R, cy);
-            ctx.lineTo(cx + R, cy);
-            ctx.stroke();
-        } else {
-            const cX = cx + R * r / (r + 1);
-            const rad = R / (r + 1);
-            ctx.beginPath();
-            ctx.arc(cX, cy, rad, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-    });
-
-    // 等电抗圆弧
-    [0.5, 1, 2].forEach(x => {
-        const rad = R / Math.abs(x);
-        ctx.beginPath();
-        ctx.arc(cx + R, cy - R/x, rad, Math.PI*0.5, Math.PI);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(cx + R, cy + R/x, rad, Math.PI, Math.PI*1.5);
-        ctx.stroke();
-    });
-
-    ctx.strokeStyle = '#a0aec0';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx - R - 5, cy);
-    ctx.lineTo(cx + R + 5, cy);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - R - 5);
-    ctx.lineTo(cx, cy + R + 5);
-    ctx.stroke();
-
-    ctx.fillStyle = '#718096';
-    ctx.font = '11px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('Re(Γ)', cx + R + 24, cy + 3);
-    ctx.fillText('Im(Γ)', cx + 5, cy - R - 14);
-
-    // 数据
-    datasets.forEach(ds => {
-        ctx.strokeStyle = ds.color;
-        ctx.fillStyle = ds.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ds.data.forEach((p, i) => {
-            const x = cx + p.re * R;
-            const y = cy - p.im * R;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    });
+  });
+  markers.forEach(m=>{
+    const info=fileStore[m.name];if(!info||!info.visible)return;
+    const d=info.data[m.idx];if(!d||!d.s)return;
+    const x=cx+d.s.re*R,y=cy-d.s.im*R;
+    ctx.fillStyle='#ff0000';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`Re:${d.s.re.toFixed(3)}\nIm:${d.s.im.toFixed(3)}`,x+8,y-5);
+  });
 }
 
-function drawCharts() {
-    if (!currentType) {
-        document.getElementById('s1p-charts').style.display = 'none';
-        document.getElementById('s2p-charts').style.display = 'none';
-        return;
-    }
+function drawAll(){
+  const area=document.getElementById('chartArea');
+  if(!currentType){area.innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件</div>';return;}
+  area.innerHTML='';
+  if(currentType==='s1p'){
+    const zWrap=document.createElement('div');zWrap.className='chart-wrap';
+    const zTitle=document.createElement('div');zTitle.className='chart-title';
+    zTitle.innerHTML='<span>|Z| 阻抗幅度</span><div class="legend" id="legend-z"></div>';
+    zWrap.appendChild(zTitle);
+    const zCanv=document.createElement('canvas');zCanv.id='canv-z';zCanv.height=280;
+    zWrap.appendChild(zCanv);area.appendChild(zWrap);
+    const zDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>({x:d.f,y:zScaleMode==='db'?d.zDB:d.zAbs}))}));
+    drawLineChart('canv-z',280,zDs,'Frequency (GHz)',zScaleMode==='db'?'|Z| (dBΩ)':'|Z| (Ω)','z');
+    buildLegend('legend-z',zDs);
 
-    if (currentType === 's1p') {
-        document.getElementById('s1p-charts').style.display = 'block';
-        document.getElementById('s2p-charts').style.display = 'none';
+    const sWrap=document.createElement('div');sWrap.className='chart-wrap';
+    const sTitle=document.createElement('div');sTitle.className='chart-title';
+    sTitle.innerHTML='<span>Smith Chart (S₁₁)</span><div class="legend" id="legend-smith"></div>';
+    sWrap.appendChild(sTitle);
+    const sCanv=document.createElement('canvas');sCanv.id='canv-smith';sCanv.height=300;
+    sWrap.appendChild(sCanv);area.appendChild(sWrap);
+    const sDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>d.s)}));
+    drawSmithChart('canv-smith',300,sDs);
+    buildLegend('legend-smith',sDs);
 
-        const zDatasets = Object.values(fileStore).map(info => ({
-            color: info.color,
-            data: info.data.map(d => ({x: d.freq, y: d.zDB}))
-        }));
-        drawLineChart('canvas-z', zDatasets, 'Frequency (GHz)', '|Z| (dBΩ)');
-
-        const smithDatasets = Object.values(fileStore).map(info => ({
-            color: info.color,
-            data: info.data.map(d => ({re: d.s11.re, im: d.s11.im}))
-        }));
-        drawSmithChart('canvas-smith', smithDatasets);
-
-    } else {
-        document.getElementById('s1p-charts').style.display = 'none';
-        document.getElementById('s2p-charts').style.display = 'block';
-
-        const s21Datasets = Object.values(fileStore).map(info => ({
-            color: info.color,
-            data: info.data.map(d => ({x: d.freq, y: d.s21dB}))
-        }));
-        drawLineChart('canvas-s21', s21Datasets, 'Frequency (GHz)', '|S₂₁| (dB)');
-    }
+    const bWrap=document.createElement('div');bWrap.className='chart-wrap';
+    const bTitle=document.createElement('div');bTitle.className='chart-title';
+    bTitle.innerHTML='<span>Bode Quality Factor</span><div class="legend" id="legend-bodeq"></div>';
+    bWrap.appendChild(bTitle);
+    const bCanv=document.createElement('canvas');bCanv.id='canv-bodeq';bCanv.height=260;
+    bWrap.appendChild(bCanv);area.appendChild(bWrap);
+    const bDs=Object.values(fileStore).filter(f=>f.visible).map(f=>{
+      const bq=calcBodeQ(f.data);
+      return{color:f.color,data:f.data.map((d,i)=>({x:d.f,y:bq[i]})).filter(p=>!isNaN(p.y))};
+    });
+    drawLineChart('canv-bodeq',260,bDs,'Frequency (GHz)','BodeQ','bodeq');
+    buildLegend('legend-bodeq',bDs);
+  }else{
+    const wrap=document.createElement('div');wrap.className='chart-wrap s2p-wrap';
+    const title=document.createElement('div');title.className='chart-title';
+    title.innerHTML='<span>|S₂₁| 插损/增益</span><div class="legend" id="legend-s21"></div>';
+    wrap.appendChild(title);
+    const canv=document.createElement('canvas');canv.id='canv-s21';canv.height=360;
+    wrap.appendChild(canv);area.appendChild(wrap);
+    const ds=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>({x:d.f,y:d.s21dB}))}));
+    drawLineChart('canv-s21',360,ds,'Frequency (GHz)','|S₂₁| (dB)','s21');
+    buildLegend('legend-s21',ds);
+  }
+  bindCtxMenu();
 }
 
-let resizeTimer;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(drawCharts, 200);
-});
+function buildLegend(id,datasets){
+  const box=document.getElementById(id);if(!box)return;
+  box.innerHTML='';
+  datasets.forEach(ds=>{
+    const item=document.createElement('div');item.className='legend-item';
+    item.innerHTML=`<div class="legend-color" style="background:${ds.color}"></div>${ds.color}`;
+    box.appendChild(item);
+  });
+}
+
+function toggleZScale(){
+  if(currentType!=='s1p')return;
+  zScaleMode=zScaleMode==='db'?'log':'db';
+  zoomState={};
+  drawAll();
+  setStatus('纵坐标: '+(zScaleMode==='db'?'dBΩ (线性)':'Ω (对数)'));
+}
+function resetView(){zoomState={};drawAll();setStatus('视图已重置');}
+function saveImage(){
+  if(!currentType)return;
+  const canv=document.querySelector('canvas');if(!canv)return;
+  const link=document.createElement('a');
+  link.download='rf_chart_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.png';
+  link.href=canv.toDataURL('image/png');link.click();
+  setStatus('图像已保存');
+}
+
+// ========== Box Zoom ==========
+let boxZoomState=null;
+function bindBoxZoom(cid,axKey,zs,g){
+  const c=document.getElementById(cid);if(!c)return;
+  let start=null;
+  c.onmousedown=(e)=>{if(e.button!==0)return;const r=c.getBoundingClientRect();start={x:e.clientX-r.x,y:e.clientY-r.y};};
+  c.onmousemove=(e)=>{if(!start)return;const r=c.getBoundingClientRect();const x=e.clientX-r.x,y=e.clientY-r.y;drawAll();const ctx=c.getContext('2d');ctx.strokeStyle='rgba(102,126,234,0.5)';ctx.fillStyle='rgba(102,126,234,0.1)';ctx.fillRect(start.x,start.y,x-start.x,y-start.y);ctx.strokeRect(start.x,start.y,x-start.x,y-start.y);};
+  c.onmouseup=(e)=>{if(!start)return;const r=c.getBoundingClientRect();const x2=e.clientX-r.x,y2=e.clientY-r.y;const x1=start.x,y1=start.y;start=null;
+    const xMin=Math.min(x1,x2),xMax=Math.max(x1,x2),yMin=Math.min(y1,y2),yMax=Math.max(y1,y2);
+    if(xMax-xMin<5||yMax-yMin<5)return;
+    const xv1=zs.xlim[0]+(xMin-g.pad.l)/g.Gw*(zs.xlim[1]-zs.xlim[0]);
+    const xv2=zs.xlim[0]+(xMax-g.pad.l)/g.Gw*(zs.xlim[1]-zs.xlim[0]);
+    const yv1=zs.ylim[0]+(g.pad.t+g.Gh-yMax)/g.Gh*(zs.ylim[1]-zs.ylim[0]);
+    const yv2=zs.ylim[0]+(g.pad.t+g.Gh-yMin)/g.Gh*(zs.ylim[1]-zs.ylim[0]);
+    zs.xlim=[Math.min(xv1,xv2),Math.max(xv1,xv2)];
+    zs.ylim=[Math.min(yv1,yv2),Math.max(yv1,yv2)];
+    drawAll();
+  };
+}
+
+// ========== Context Menu ==========
+let ctxMenuEl=null;
+function showCtx(e,items){
+  hideCtx();ctxMenuEl=document.createElement('div');ctxMenuEl.className='ctx-menu';
+  items.forEach(it=>{
+    if(it==='sep'){const s=document.createElement('div');s.className='ctx-menu-sep';ctxMenuEl.appendChild(s);}
+    else{const d=document.createElement('div');d.className='ctx-menu-item';d.textContent=it.label;d.onclick=()=>{it.fn();hideCtx();};ctxMenuEl.appendChild(d);}
+  });
+  ctxMenuEl.style.left=e.clientX+'px';ctxMenuEl.style.top=e.clientY+'px';
+  document.body.appendChild(ctxMenuEl);
+}
+function hideCtx(){if(ctxMenuEl){ctxMenuEl.remove();ctxMenuEl=null;}}
+document.addEventListener('click',hideCtx);
+
+function bindCtxMenu(){
+  document.querySelectorAll('canvas').forEach(c=>{
+    c.oncontextmenu=(e)=>{
+      e.preventDefault();
+      const items=[
+        {label:'精确添加 Marker...',fn:()=>openMarkerDialog()},
+        {label:'Marker 列表...',fn:()=>showMarkerList()},
+        {label:'清除所有 Markers',fn:()=>{markers=[];drawAll();setStatus('已清除所有 Markers');}},
+        'sep',
+        {label:'重置视图',fn:()=>resetView()}
+      ];
+      showCtx(e,items);
+    };
+  });
+}
+
+function showFileCtx(e,name){
+  const items=[
+    {label:'删除此文件',fn:()=>removeFile(name)},
+    {label:'切换显隐',fn:()=>toggleVis(name)},
+    'sep',
+    {label:'显示全部',fn:showAllFiles},
+    {label:'隐藏全部',fn:hideAllFiles}
+  ];
+  showCtx(e,items);
+}
+
+// ========== Marker Dialogs ==========
+function openMarkerDialog(){
+  if(!Object.keys(fileStore).length){alert('请先加载数据');return;}
+  const dlg=document.createElement('div');dlg.className='dialog-overlay';
+  const isS2p=currentType==='s2p';
+  dlg.innerHTML=`<div class="dialog">
+    <h3>精确添加 Marker</h3>
+    <div class="dialog-row"><label>目标频率 (GHz):</label><input type="number" id="md-freq" step="any"></div>
+    <div class="dialog-row"><label id="md-ylabel">目标Y值:</label><input type="number" id="md-y" step="any"></div>
+    ${!isS2p?'<div class="dialog-row"><label>目标图形:</label><select id="md-target"><option value="z">阻抗图 |Z|</option><option value="bodeq">BodeQ图</option></select></div>':''}
+    <div style="color:#a0aec0;font-size:11px;margin-bottom:8px">至少输入一项，留空则忽略该项</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="primary" style="padding:6px 12px;border:none;border-radius:4px;background:#667eea;color:#fff;cursor:pointer" onclick="searchMarkerCandidates()">查找候选</button>
+    </div>
+    <div style="max-height:200px;overflow-y:auto;border:1px solid #edf2f7;border-radius:6px">
+      <table class="dialog-table" id="md-table"><thead><tr><th>文件名</th><th>频率(GHz)</th><th>Y值</th><th>ΔFreq</th><th>ΔY</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="dialog-btns">
+      <button class="primary" onclick="addSelectedMarker()">添加选中</button>
+      <button class="secondary" onclick="this.closest('.dialog-overlay').remove()">取消</button>
+    </div>
+  </div>`;
+  document.body.appendChild(dlg);
+  document.getElementById('md-freq').focus();
+}
+
+let mdCandidates=[];
+function searchMarkerCandidates(){
+  const fStr=document.getElementById('md-freq').value.trim();
+  const yStr=document.getElementById('md-y').value.trim();
+  const target=currentType!=='s2p'?(document.getElementById('md-target')?.value||'z'):'s21';
+  if(!fStr&&!yStr){alert('至少输入一项');return;}
+  const tf=fStr?parseFloat(fStr):null,ty=yStr?parseFloat(yStr):null;
+  mdCandidates=[];
+  Object.entries(fileStore).forEach(([name,info])=>{
+    info.data.forEach((d,i)=>{
+      let yVal;
+      if(currentType==='s2p')yVal=d.s21dB;
+      else if(target==='z')yVal=zScaleMode==='db'?d.zDB:d.zAbs;
+      else{yVal=calcBodeQ(info.data)[i];}
+      if(tf!==null&&ty!==null){
+        const fe=Math.abs(d.f-tf),ye=Math.abs(yVal-ty);
+        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye,score:fe*10+ye});
+      }else if(tf!==null){
+        const fe=Math.abs(d.f-tf);
+        mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye:0,score:fe});
+      }else{
+        const ye=Math.abs(yVal-ty);
+        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe:0,ye,score:ye});
+      }
+    });
+  });
+  if(tf!==null&&ty!==null)mdCandidates.sort((a,b)=>a.score-b.score);
+  else if(tf!==null)mdCandidates.sort((a,b)=>a.fe-b.fe);
+  else mdCandidates.sort((a,b)=>a.ye-b.ye);
+  mdCandidates=mdCandidates.slice(0,50);
+  const tbody=document.querySelector('#md-table tbody');
+  tbody.innerHTML=mdCandidates.map((c,i)=>`<tr data-idx="${i}" onclick="selectMdRow(this)"><td>${c.name}</td><td>${c.freq.toFixed(3)}</td><td>${isNaN(c.y)?'N/A':c.y.toFixed(2)}</td><td>${c.fe?c.fe.toFixed(3):'-'}</td><td>${c.ye?c.ye.toFixed(2):'-'}</td></tr>`).join('');
+}
+function selectMdRow(tr){tr.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('active'));tr.classList.add('active');}
+function addSelectedMarker(){
+  const sel=document.querySelector('#md-table tr.active');
+  if(!sel){alert('请先选中一个候选');return;}
+  const idx=parseInt(sel.dataset.idx);
+  const c=mdCandidates[idx];
+  if(markers.some(m=>m.name===c.name&&m.idx===c.idx)){alert('该位置已存在 Marker');return;}
+  const bq=currentType==='s1p'?calcBodeQ(fileStore[c.name].data)[c.idx]:null;
+  markers.push({name:c.name,idx:c.idx,freq:c.freq,bodeqVal:bq});
+  drawAll();setStatus(`已添加 Marker: ${c.name} @ ${c.freq.toFixed(3)} GHz`);
+  document.querySelector('.dialog-overlay').remove();
+}
+
+function showMarkerList(){
+  if(!markers.length){alert('当前没有 Marker');return;}
+  const dlg=document.createElement('div');dlg.className='dialog-overlay';
+  dlg.innerHTML=`<div class="dialog">
+    <h3>Marker 列表</h3>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid #edf2f7;border-radius:6px">
+      <table class="dialog-table"><thead><tr><th>文件名</th><th>频率(GHz)</th><th>Y值</th><th></th></tr></thead><tbody>
+        ${markers.map((m,i)=>{
+          const d=fileStore[m.name].data[m.idx];
+          let y=currentType==='s2p'?d.s21dB:(zScaleMode==='db'?d.zDB:d.zAbs);
+          return `<tr><td>${m.name}</td><td>${m.freq.toFixed(3)}</td><td>${y.toFixed(2)}</td><td><button onclick="removeMarkerByIdx(${i});this.closest('.dialog-overlay').remove();showMarkerList();" style="border:none;background:#fc8181;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">删除</button></td></tr>`;
+        }).join('')}
+      </tbody></table>
+    </div>
+    <div class="dialog-btns">
+      <button class="secondary" onclick="this.closest('.dialog-overlay').remove()">关闭</button>
+    </div>
+  </div>`;
+  document.body.appendChild(dlg);
+}
+function removeMarkerByIdx(i){markers.splice(i,1);drawAll();setStatus('已删除 Marker');}
+
+// ========== Keyboard shortcuts ==========
+document.addEventListener('keydown',e=>{if(e.key==='Delete'&&selectedFiles.size){deleteSelectedFiles();}});
+
+// ========== Resize ==========
+let rt;
+window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawAll,300);});
 </script>
 </body>
 </html>
