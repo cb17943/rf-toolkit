@@ -86,6 +86,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 .s2p-wrap{max-width:900px;margin:0 auto}
 </style>
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="header">
@@ -98,8 +99,8 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 </div>
 
 <div class="tabbar">
-  <div class="tabitem active" onclick="switchTab('snp')">S参数分析</div>
-  <div class="tabitem" onclick="switchTab('calc')">计算器</div>
+  <div class="tabitem active" onclick="switchTab('snp',this)">S参数分析</div>
+  <div class="tabitem" onclick="switchTab('calc',this)">计算器</div>
 </div>
 
 <div id="panel-snp" class="tabpanel active">
@@ -164,10 +165,10 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 
 <script>
 // ==================== Tab Switch ====================
-function switchTab(name){
+function switchTab(name,el){
   document.querySelectorAll('.tabitem').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tabpanel').forEach(t=>t.classList.remove('active'));
-  event.target.classList.add('active');
+  el.classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
 }
 
@@ -402,7 +403,7 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
 }
 
 function drawSmithChart(cid,h,datasets){
-  const{ctx,w,H}=setupCanvas(cid,h);
+  const{ctx,w,h:H}=setupCanvas(cid,h);
   const cx=w/2,cy=H/2,R=Math.min(w,H)*0.40;
   ctx.fillStyle='#fff';ctx.fillRect(0,0,w,H);
   ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
