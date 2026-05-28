@@ -84,6 +84,14 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 .ctx-menu-sep{border-top:1px solid #edf2f7;margin:4px 0}
 
 .s2p-wrap{max-width:900px;margin:0 auto}
+
+@media(max-width:768px){
+  .main{flex-direction:column}
+  .sidebar{width:100%;height:auto;max-height:200px;border-right:none;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+  .file-list{max-height:120px}
+  .chart-area{padding:8px}
+  canvas{touch-action:pan-y !important;cursor:default}
+}
 </style>
 <base target="_blank">
 <base target="_blank">
@@ -99,11 +107,11 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 </div>
 
 <div class="tabbar">
-  <div class="tabitem active" onclick="switchTab('snp',this)">S参数分析</div>
-  <div class="tabitem" onclick="switchTab('calc',this)">计算器</div>
+  <div class="tabitem active" onclick="switchTab('calc',this)">计算器</div>
+  <div class="tabitem" onclick="switchTab('snp',this)">S参数分析</div>
 </div>
 
-<div id="panel-snp" class="tabpanel active">
+<div id="panel-snp" class="tabpanel">
   <div class="main">
     <div class="sidebar">
       <div class="sidebar-title">已加载文件</div>
@@ -123,7 +131,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
   </div>
 </div>
 
-<div id="panel-calc" class="tabpanel">
+<div id="panel-calc" class="tabpanel active">
   <div class="calc-area">
     <div class="calc-card">
       <div class="calc-title">keff² 计算</div>
@@ -341,7 +349,7 @@ function setupCanvas(id,h){
   return{ctx,w:w||600,h:h||280,dpr};
 }
 
-function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL){
+function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL,isLogY){
   const pad={l:50,r:15,t:15,b:38};
   const Gw=W-pad.l-pad.r,Gh=H-pad.t-pad.b;
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
@@ -353,13 +361,24 @@ function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL){
     ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='center';
     ctx.fillText(v.toFixed(2),x,pad.t+Gh+18);
   }
-  for(let i=0;i<=5;i++){
-    const y=pad.t+Gh-Gh*i/5;
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+Gw,y);ctx.stroke();
-    const v=yMin+(yMax-yMin)*i/5;
-    ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='right';
-    const dec=(yMax-yMin)>10?0:((yMax-yMin)>1?1:2);
-    ctx.fillText(v.toFixed(dec),pad.l-6,y+3);
+  if(isLogY){
+    for(let i=0;i<=5;i++){
+      const y=pad.t+Gh-Gh*i/5;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+Gw,y);ctx.stroke();
+      const v=yMin+(yMax-yMin)*i/5;
+      const realV=Math.pow(10,v);
+      ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='right';
+      ctx.fillText(formatEng(realV),pad.l-6,y+3);
+    }
+  }else{
+    for(let i=0;i<=5;i++){
+      const y=pad.t+Gh-Gh*i/5;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+Gw,y);ctx.stroke();
+      const v=yMin+(yMax-yMin)*i/5;
+      ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='right';
+      const dec=(yMax-yMin)>10?0:((yMax-yMin)>1?1:2);
+      ctx.fillText(v.toFixed(dec),pad.l-6,y+3);
+    }
   }
   ctx.strokeStyle='#a0aec0';ctx.lineWidth=1.5;
   ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+Gh);ctx.lineTo(pad.l+Gw,pad.t+Gh);ctx.stroke();
@@ -367,23 +386,46 @@ function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL){
   if(yL){ctx.save();ctx.translate(14,pad.t+Gh/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='#4a5568';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.fillText(yL,0,0);ctx.restore();}
   return{pad,Gw,Gh};
 }
+function formatEng(v){
+  if(v>=1e9)return(v/1e9).toFixed(1)+'G';
+  if(v>=1e6)return(v/1e6).toFixed(1)+'M';
+  if(v>=1e3)return(v/1e3).toFixed(1)+'k';
+  if(v>=1)return v.toFixed(1);
+  if(v>=1e-3)return(v*1e3).toFixed(1)+'m';
+  if(v>=1e-6)return(v*1e6).toFixed(1)+'μ';
+  return v.toExponential(1);
+}
 const mx=(v,x1,x2,p,W)=>(v-x1)/(x2-x1)*W+p.l;
 const my=(v,y1,y2,p,H)=>p.t+H-(v-y1)/(y2-y1)*H;
 
 function drawLineChart(cid,h,datasets,xL,yL,axKey){
   const{ctx,w,h:H}=setupCanvas(cid,h);
   if(!datasets.length)return;
+  const isLogY=zScaleMode==='log'&&yL.includes('Ω')&&!yL.includes('dB');
   let x1=Infinity,x2=-Infinity,y1=Infinity,y2=-Infinity;
-  datasets.forEach(ds=>ds.data.forEach(p=>{if(p.x<x1)x1=p.x;if(p.x>x2)x2=p.x;if(p.y<y1)y1=p.y;if(p.y>y2)y2=p.y;}));
+  datasets.forEach(ds=>ds.data.forEach(p=>{
+    let py=p.y;
+    if(isLogY){if(p.y<=0)return;py=Math.log10(p.y);}
+    if(p.x<x1)x1=p.x;if(p.x>x2)x2=p.x;
+    if(py<y1)y1=py;if(py>y2)y2=py;
+  }));
+  if(x1===Infinity)return;
   const xm=(x2-x1)*0.02||0.1,ym=(y2-y1)*0.1||1;
   x1-=xm;x2+=xm;y1-=ym;y2+=ym;
-  if(zScaleMode==='log'&&yL.includes('Ω')&&!yL.includes('dB')){if(y1<=0)y1=1e-6;}
-  const g=drawGrid(ctx,w,H,x1,x2,y1,y2,xL,yL);
+  if(isLogY&&y1<=0)y1=-6;
+  const g=drawGrid(ctx,w,H,x1,x2,y1,y2,xL,yL,isLogY);
   if(!zoomState[axKey])zoomState[axKey]={xlim:[x1,x2],ylim:[y1,y2]};
   const zs=zoomState[axKey];
   datasets.forEach(ds=>{
     ctx.strokeStyle=ds.color;ctx.lineWidth=2;ctx.beginPath();
-    ds.data.forEach((p,i)=>{const x=mx(p.x,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);const y=my(p.y,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
+    let first=true;
+    ds.data.forEach(p=>{
+      let py=p.y;
+      if(isLogY){if(p.y<=0)return;py=Math.log10(p.y);}
+      const x=mx(p.x,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
+      const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
+      if(first){ctx.moveTo(x,y);first=false;}else{ctx.lineTo(x,y);}
+    });
     ctx.stroke();
   });
   markers.forEach(m=>{
@@ -400,8 +442,10 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
     ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`${px.toFixed(3)}G\n${py.toFixed(2)}`,x+8,y-5);
   });
   bindBoxZoom(cid,axKey,zs,g);
+  cvsMeta[cid]={zs,g,axKey};
 }
 
+let cvsMeta={};
 function drawSmithChart(cid,h,datasets){
   const{ctx,w,h:H}=setupCanvas(cid,h);
   const cx=w/2,cy=H/2,R=Math.min(w,H)*0.40;
@@ -451,16 +495,6 @@ function drawAll(){
     drawLineChart('canv-z',280,zDs,'Frequency (GHz)',zScaleMode==='db'?'|Z| (dBΩ)':'|Z| (Ω)','z');
     buildLegend('legend-z',zDs);
 
-    const sWrap=document.createElement('div');sWrap.className='chart-wrap';
-    const sTitle=document.createElement('div');sTitle.className='chart-title';
-    sTitle.innerHTML='<span>Smith Chart (S₁₁)</span><div class="legend" id="legend-smith"></div>';
-    sWrap.appendChild(sTitle);
-    const sCanv=document.createElement('canvas');sCanv.id='canv-smith';sCanv.height=300;
-    sWrap.appendChild(sCanv);area.appendChild(sWrap);
-    const sDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>d.s)}));
-    drawSmithChart('canv-smith',300,sDs);
-    buildLegend('legend-smith',sDs);
-
     const bWrap=document.createElement('div');bWrap.className='chart-wrap';
     const bTitle=document.createElement('div');bTitle.className='chart-title';
     bTitle.innerHTML='<span>Bode Quality Factor</span><div class="legend" id="legend-bodeq"></div>';
@@ -473,6 +507,16 @@ function drawAll(){
     });
     drawLineChart('canv-bodeq',260,bDs,'Frequency (GHz)','BodeQ','bodeq');
     buildLegend('legend-bodeq',bDs);
+
+    const sWrap=document.createElement('div');sWrap.className='chart-wrap';
+    const sTitle=document.createElement('div');sTitle.className='chart-title';
+    sTitle.innerHTML='<span>Smith Chart (S₁₁)</span><div class="legend" id="legend-smith"></div>';
+    sWrap.appendChild(sTitle);
+    const sCanv=document.createElement('canvas');sCanv.id='canv-smith';sCanv.height=300;
+    sWrap.appendChild(sCanv);area.appendChild(sWrap);
+    const sDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>d.s)}));
+    drawSmithChart('canv-smith',300,sDs);
+    buildLegend('legend-smith',sDs);
   }else{
     const wrap=document.createElement('div');wrap.className='chart-wrap s2p-wrap';
     const title=document.createElement('div');title.className='chart-title';
@@ -518,6 +562,7 @@ function saveImage(){
 let boxZoomState=null;
 function bindBoxZoom(cid,axKey,zs,g){
   const c=document.getElementById(cid);if(!c)return;
+  if(window.innerWidth<=768)return;
   let start=null;
   c.onmousedown=(e)=>{if(e.button!==0)return;const r=c.getBoundingClientRect();start={x:e.clientX-r.x,y:e.clientY-r.y};};
   c.onmousemove=(e)=>{if(!start)return;const r=c.getBoundingClientRect();const x=e.clientX-r.x,y=e.clientY-r.y;drawAll();const ctx=c.getContext('2d');ctx.strokeStyle='rgba(102,126,234,0.5)';ctx.fillStyle='rgba(102,126,234,0.1)';ctx.fillRect(start.x,start.y,x-start.x,y-start.y);ctx.strokeRect(start.x,start.y,x-start.x,y-start.y);};
@@ -532,6 +577,28 @@ function bindBoxZoom(cid,axKey,zs,g){
     zs.ylim=[Math.min(yv1,yv2),Math.max(yv1,yv2)];
     drawAll();
   };
+}
+
+// ========== Right-click nearest point ==========
+function findNearestPoint(cid,mcx,mcy){
+  const meta=cvsMeta[cid];if(!meta)return null;
+  const{zs,g,axKey}=meta;
+  let best=null,bestDist=Infinity;
+  Object.entries(fileStore).forEach(([name,info])=>{
+    if(!info.visible)return;
+    info.data.forEach((d,i)=>{
+      let px=d.f,py;
+      if(axKey==='z'){py=zScaleMode==='db'?d.zDB:Math.log10(d.zAbs);}
+      else if(axKey==='s21'){py=d.s21dB;}
+      else if(axKey==='bodeq'){const bq=calcBodeQ(info.data)[i];if(isNaN(bq))return;py=Math.log10(bq);}
+      else return;
+      const sx=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
+      const sy=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
+      const dist=Math.sqrt((sx-mcx)**2+(sy-mcy)**2);
+      if(dist<bestDist){bestDist=dist;best={name,idx:i,freq:d.f};}
+    });
+  });
+  return best;
 }
 
 // ========== Context Menu ==========
@@ -552,13 +619,25 @@ function bindCtxMenu(){
   document.querySelectorAll('canvas').forEach(c=>{
     c.oncontextmenu=(e)=>{
       e.preventDefault();
-      const items=[
-        {label:'精确添加 Marker...',fn:()=>openMarkerDialog()},
-        {label:'Marker 列表...',fn:()=>showMarkerList()},
-        {label:'清除所有 Markers',fn:()=>{markers=[];drawAll();setStatus('已清除所有 Markers');}},
-        'sep',
-        {label:'重置视图',fn:()=>resetView()}
-      ];
+      const r=c.getBoundingClientRect();
+      const mcx=e.clientX-r.x,mcy=e.clientY-r.y;
+      const cid=c.id;
+      const nearest=findNearestPoint(cid,mcx,mcy);
+      const items=[];
+      if(nearest){
+        items.push({label:`在此位置添加 Marker (${nearest.freq.toFixed(3)}G)`,fn:()=>{
+          if(markers.some(m=>m.name===nearest.name&&m.idx===nearest.idx)){setStatus('该位置已存在 Marker');return;}
+          const bq=currentType==='s1p'?calcBodeQ(fileStore[nearest.name].data)[nearest.idx]:null;
+          markers.push({name:nearest.name,idx:nearest.idx,freq:nearest.freq,bodeqVal:bq});
+          drawAll();setStatus(`已添加 Marker: ${nearest.name} @ ${nearest.freq.toFixed(3)} GHz`);
+        }});
+        items.push('sep');
+      }
+      items.push({label:'精确添加 Marker...',fn:()=>openMarkerDialog()});
+      items.push({label:'Marker 列表...',fn:()=>showMarkerList()});
+      items.push({label:'清除所有 Markers',fn:()=>{markers=[];drawAll();setStatus('已清除所有 Markers');}});
+      items.push('sep');
+      items.push({label:'重置视图',fn:()=>resetView()});
       showCtx(e,items);
     };
   });
