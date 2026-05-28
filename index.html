@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RF 工具箱</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            padding-bottom: 30px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 56px;
+            z-index: 99;
+        }
+        .tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: #718096;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f7fafc;
+        }
+        .tab-content { display: none; padding: 16px; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .input-group { margin-bottom: 12px; }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        input[type="number"], input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+            background: #fafbfc;
+        }
+        input[type="number"]:focus, input[type="text"]:focus {
+            border-color: #667eea;
+            background: white;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .result-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px;
+            border-radius: 12px;
+            margin-top: 12px;
+            text-align: center;
+        }
+        .result-label { font-size: 12px; opacity: 0.9; margin-bottom: 4px; }
+        .result-value {
+            font-size: 26px;
+            font-weight: 700;
+            font-family: "SF Mono", Monaco, monospace;
+        }
+        .formula {
+            font-size: 11px;
+            color: #a0aec0;
+            margin-top: 6px;
+            text-align: center;
+            font-family: monospace;
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-secondary {
+            background: #edf2f7;
+            color: #4a5568;
+        }
+        .btn:active { opacity: 0.8; transform: scale(0.98); }
+
+        /* S参数分析 */
+        .file-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+        .file-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #edf2f7;
+            color: #4a5568;
+        }
+        .file-tag .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .file-tag .remove {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #cbd5e0;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .chart-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+        canvas {
+            width: 100%;
+            display: block;
+            touch-action: none;
+        }
+        .hint {
+            font-size: 11px;
+            color: #a0aec0;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .mode-toggle {
+            display: flex;
+            background: #edf2f7;
+            border-radius: 8px;
+            padding: 3px;
+            margin-bottom: 12px;
+        }
+        .mode-toggle .mode-btn {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #718096;
+            cursor: pointer;
+        }
+        .mode-toggle .mode-btn.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">📱 RF 工具箱</div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('calc')">计算器</div>
+        <div class="tab" onclick="switchTab('snp')">S参数分析</div>
+    </div>
+
+    <!-- 计算器 Tab -->
+    <div id="tab-calc" class="tab-content active">
+        <div class="card">
+            <div class="card-title">keff² 计算</div>
+            <div class="input-group">
+                <label>fs (MHz)</label>
+                <input type="number" id="fs" step="any" placeholder="输入 fs">
+            </div>
+            <div class="input-group">
+                <label>fp (MHz)</label>
+                <input type="number" id="fp" step="any" placeholder="输入 fp">
+            </div>
+            <div class="result-box" id="keff2-result" style="display:none;">
+                <div class="result-label">keff² (%)</div>
+                <div class="result-value" id="keff2-value">-</div>
+            </div>
+            <div class="formula">k²eff = 2.4674 × fs/fp × (fp−fs)/fp × 100</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">dB ↔ Ohm 换算</div>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="mode-ohm-db" onclick="setConvertMode('ohm-to-db')">Ohm → dB</button>
+                <button class="mode-btn" id="mode-db-ohm" onclick="setConvertMode('db-to-ohm')">dB → Ohm</button>
+            </div>
+            <div class="input-group">
+                <label id="conv-input-label">Ohm (Ω)</label>
+                <input type="number" id="conv-input" step="any" placeholder="输入数值">
+            </div>
+            <div class="result-box" id="conv-result" style="display:none;">
+                <div class="result-label" id="conv-output-label">dB</div>
+                <div class="result-value" id="conv-output">-</div>
+            </div>
+            <div class="formula" id="conv-formula">dB = 20 × log₁₀(Ohm)</div>
+        </div>
+    </div>
+
+    <!-- S参数分析 Tab -->
+    <div id="tab-snp" class="tab-content">
+        <div class="card">
+            <div class="card-title">导入 S参数文件</div>
+            <div class="file-input-wrapper">
+                <div class="file-btn">+ 选择 .s1p / .s2p 文件</div>
+                <input type="file" id="snp-file" accept=".s1p,.s2p" multiple onchange="handleFiles(event)">
+            </div>
+            <div class="hint">支持批量导入，同类型文件自动叠加显示</div>
+            <div class="file-tags" id="file-tags"></div>
+        </div>
+
+        <div id="s1p-charts" style="display:none;">
+            <div class="chart-container">
+                <div class="chart-title">|Z| 阻抗幅度 (dBΩ)</div>
+                <canvas id="canvas-z" height="280"></canvas>
+            </div>
+            <div class="chart-container">
+                <div class="chart-title">Smith Chart (S₁₁)</div>
+                <canvas id="canvas-smith" height="300"></canvas>
+            </div>
+        </div>
+
+        <div id="s2p-charts" style="display:none;">
+            <div class="chart-container">
+                <div class="chart-title">|S₂₁| 插损/增益 (dB)</div>
+                <canvas id="canvas-s21" height="320"></canvas>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ==================== Tab 切换 ====================
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ==================== keff² 计算 ====================
+const fsInput = document.getElementById('fs');
+const fpInput = document.getElementById('fp');
+const keff2Result = document.getElementById('keff2-result');
+const keff2Value = document.getElementById('keff2-value');
+
+function calcKeff2() {
+    const fs = parseFloat(fsInput.value);
+    const fp = parseFloat(fpInput.value);
+    if (!isNaN(fs) && !isNaN(fp) && fp !== 0 && fs > 0 && fp > 0) {
+        const keff2 = 2.46740110027233 * (fs / fp) * ((fp - fs) / fp) * 100;
+        keff2Value.textContent = keff2.toFixed(4);
+        keff2Result.style.display = 'block';
+    } else {
+        keff2Result.style.display = 'none';
+    }
+}
+fsInput.addEventListener('input', calcKeff2);
+fpInput.addEventListener('input', calcKeff2);
+
+// ==================== dB-Ohm 换算 ====================
+let convMode = 'ohm-to-db';
+const convInput = document.getElementById('conv-input');
+const convResult = document.getElementById('conv-result');
+const convOutput = document.getElementById('conv-output');
+const convInputLabel = document.getElementById('conv-input-label');
+const convOutputLabel = document.getElementById('conv-output-label');
+const convFormula = document.getElementById('conv-formula');
+
+function setConvertMode(mode) {
+    convMode = mode;
+    document.getElementById('mode-ohm-db').classList.toggle('active', mode === 'ohm-to-db');
+    document.getElementById('mode-db-ohm').classList.toggle('active', mode === 'db-to-ohm');
+    if (mode === 'ohm-to-db') {
+        convInputLabel.textContent = 'Ohm (Ω)';
+        convOutputLabel.textContent = 'dB';
+        convFormula.textContent = 'dB = 20 × log₁₀(Ohm)';
+    } else {
+        convInputLabel.textContent = 'dB';
+        convOutputLabel.textContent = 'Ohm (Ω)';
+        convFormula.textContent = 'Ohm = 10^(dB / 20)';
+    }
+    convInput.value = '';
+    convResult.style.display = 'none';
+}
+
+function calcConvert() {
+    const val = parseFloat(convInput.value);
+    if (!isNaN(val) && val > 0) {
+        if (convMode === 'ohm-to-db') {
+            convOutput.textContent = (20 * Math.log10(val)).toFixed(4) + ' dB';
+        } else {
+            convOutput.textContent = Math.pow(10, val / 20).toFixed(4) + ' Ω';
+        }
+        convResult.style.display = 'block';
+    } else {
+        convResult.style.display = 'none';
+    }
+}
+convInput.addEventListener('input', calcConvert);
+
+// ==================== S参数分析 ====================
+const COLORS = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9ff3','#54a0ff','#5f27cd','#00d2d3'];
+let fileStore = {}; // {filename: {type, data, color}}
+let currentType = null; // 's1p' or 's2p'
+
+function handleFiles(event) {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+
+    const types = new Set(files.map(f => f.name.toLowerCase().endsWith('.s2p') ? 's2p' : 's1p'));
+    if (types.size > 1) {
+        alert('请同时选择同一类型的文件（全部.s1p 或 全部.s2p）');
+        return;
+    }
+    const newType = Array.from(types)[0];
+    if (currentType && currentType !== newType) {
+        if (!confirm(`当前已加载 ${currentType.toUpperCase()} 文件，导入新文件将清空现有数据，继续？`)) {
+            return;
+        }
+        clearAllData();
+    }
+    currentType = newType;
+
+    let colorIdx = Object.keys(fileStore).length;
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = parseSNP(e.target.result, file.name);
+                const color = COLORS[colorIdx % COLORS.length];
+                fileStore[file.name] = { type: newType, data, color };
+                colorIdx++;
+                updateFileTags();
+                drawCharts();
+            } catch (err) {
+                alert('解析失败: ' + file.name + '\n' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    });
+    event.target.value = '';
+}
+
+function clearAllData() {
+    fileStore = {};
+    currentType = null;
+    updateFileTags();
+    document.getElementById('s1p-charts').style.display = 'none';
+    document.getElementById('s2p-charts').style.display = 'none';
+    ['canvas-z','canvas-smith','canvas-s21'].forEach(id => {
+        const c = document.getElementById(id);
+        if (c) {
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
+        }
+    });
+}
+
+function removeFile(name) {
+    delete fileStore[name];
+    if (Object.keys(fileStore).length === 0) currentType = null;
+    updateFileTags();
+    drawCharts();
+}
+
+function updateFileTags() {
+    const container = document.getElementById('file-tags');
+    container.innerHTML = '';
+    Object.entries(fileStore).forEach(([name, info]) => {
+        const tag = document.createElement('div');
+        tag.className = 'file-tag';
+        tag.innerHTML = `<span class="dot" style="background:${info.color}"></span>${name}<span class="remove" onclick="removeFile('${name}')">×</span>`;
+        container.appendChild(tag);
+    });
+}
+
+// ==================== Touchstone 解析 ====================
+function parseSNP(text, filename) {
+    const lines = text.split(/\r?\n/);
+    let freqUnit = 'Hz', param = 'S', format = 'RI', z0 = 50;
+    const data = [];
+    let freqScale = 1;
+
+    for (let raw of lines) {
+        let line = raw.trim();
+        if (!line || line.startsWith('!')) continue;
+        if (line.startsWith('#')) {
+            const parts = line.substring(1).trim().toUpperCase().split(/\s+/);
+            for (let p of parts) {
+                if (['HZ','KHZ','MHZ','GHZ'].includes(p)) freqUnit = p;
+                if (['S','Y','Z','H','G'].includes(p)) param = p;
+                if (['RI','MA','DB'].includes(p)) format = p;
+                if (p.startsWith('R')) z0 = parseFloat(p.substring(1)) || 50;
+            }
+            if (freqUnit === 'HZ') freqScale = 1;
+            else if (freqUnit === 'KHZ') freqScale = 1e3;
+            else if (freqUnit === 'MHZ') freqScale = 1e6;
+            else if (freqUnit === 'GHZ') freqScale = 1e9;
+            continue;
+        }
+        const nums = line.split(/\s+/).map(Number).filter(n => !isNaN(n));
+        if (nums.length < 3) continue;
+
+        const freqHz = nums[0] * freqScale;
+        const freqGHz = freqHz / 1e9;
+
+        if (filename.toLowerCase().endsWith('.s1p')) {
+            let re = nums[1], im = nums[2];
+            if (format === 'MA') {
+                const phase = nums[2] * Math.PI / 180;
+                re = nums[1] * Math.cos(phase);
+                im = nums[1] * Math.sin(phase);
+            } else if (format === 'DB') {
+                const mag = Math.pow(10, nums[1] / 20);
+                const phase = nums[2] * Math.PI / 180;
+                re = mag * Math.cos(phase);
+                im = mag * Math.sin(phase);
+            }
+            // Z = Z0 * (1+S)/(1-S), |Z| = Z0 * |1+S| / |1-S|
+            const mag1pS = Math.sqrt((1+re)*(1+re) + im*im);
+            const mag1mS = Math.sqrt((1-re)*(1-re) + im*im);
+            const zAbs = z0 * mag1pS / mag1mS;
+            const zDB = 20 * Math.log10(zAbs);
+            data.push({freq: freqGHz, s11: {re, im}, zAbs, zDB});
+        } else {
+            let s21re = nums[3], s21im = nums[4];
+            if (format === 'MA') {
+                const phase = nums[4] * Math.PI / 180;
+                s21re = nums[3] * Math.cos(phase);
+                s21im = nums[3] * Math.sin(phase);
+            } else if (format === 'DB') {
+                const mag = Math.pow(10, nums[3] / 20);
+                const phase = nums[4] * Math.PI / 180;
+                s21re = mag * Math.cos(phase);
+                s21im = mag * Math.sin(phase);
+            }
+            const s21dB = 20 * Math.log10(Math.sqrt(s21re*s21re + s21im*s21im));
+            data.push({freq: freqGHz, s21: {re: s21re, im: s21im}, s21dB});
+        }
+    }
+    if (data.length === 0) throw new Error('未找到有效数据');
+    return data;
+}
+
+// ==================== 绘图引擎 ====================
+function setupCanvas(id) {
+    const canvas = document.getElementById(id);
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return {canvas, ctx, width: rect.width, height: rect.height};
+}
+
+function drawGrid(ctx, width, height, xMin, xMax, yMin, yMax, xLabel, yLabel) {
+    const pad = {l: 48, r: 15, t: 15, b: 38};
+    const W = width - pad.l - pad.r;
+    const H = height - pad.t - pad.b;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    const xSteps = 5, ySteps = 5;
+    for (let i = 0; i <= xSteps; i++) {
+        const x = pad.l + (W * i / xSteps);
+        ctx.beginPath();
+        ctx.moveTo(x, pad.t);
+        ctx.lineTo(x, pad.t + H);
+        ctx.stroke();
+        const val = xMin + (xMax - xMin) * i / xSteps;
+        ctx.fillStyle = '#718096';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(val.toFixed(2), x, pad.t + H + 18);
+    }
+    for (let i = 0; i <= ySteps; i++) {
+        const y = pad.t + H - (H * i / ySteps);
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(pad.l + W, y);
+        ctx.stroke();
+        const val = yMin + (yMax - yMin) * i / ySteps;
+        ctx.fillStyle = '#718096';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'right';
+        const decimals = (yMax - yMin) > 10 ? 0 : ((yMax - yMin) > 1 ? 1 : 2);
+        ctx.fillText(val.toFixed(decimals), pad.l - 6, y + 3);
+    }
+
+    ctx.strokeStyle = '#a0aec0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l, pad.t + H);
+    ctx.lineTo(pad.l + W, pad.t + H);
+    ctx.stroke();
+
+    if (xLabel) {
+        ctx.fillStyle = '#4a5568';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(xLabel, pad.l + W/2, height - 4);
+    }
+    if (yLabel) {
+        ctx.save();
+        ctx.translate(14, pad.t + H/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillStyle = '#4a5568';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(yLabel, 0, 0);
+        ctx.restore();
+    }
+    return {pad, W, H};
+}
+
+function mapX(val, xMin, xMax, pad, W) { return pad.l + (val - xMin) / (xMax - xMin) * W; }
+function mapY(val, yMin, yMax, pad, H) { return pad.t + H - (val - yMin) / (yMax - yMin) * H; }
+
+function drawLineChart(canvasId, datasets, xLabel, yLabel) {
+    const {ctx, width, height} = setupCanvas(canvasId);
+    if (!datasets.length) return;
+
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    datasets.forEach(ds => {
+        ds.data.forEach(p => {
+            if (p.x < xMin) xMin = p.x;
+            if (p.x > xMax) xMax = p.x;
+            if (p.y < yMin) yMin = p.y;
+            if (p.y > yMax) yMax = p.y;
+        });
+    });
+    const xMargin = (xMax - xMin) * 0.02 || 0.1;
+    const yMargin = (yMax - yMin) * 0.1 || 1;
+    xMin -= xMargin; xMax += xMargin;
+    yMin -= yMargin; yMax += yMargin;
+
+    const grid = drawGrid(ctx, width, height, xMin, xMax, yMin, yMax, xLabel, yLabel);
+
+    datasets.forEach(ds => {
+        ctx.strokeStyle = ds.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ds.data.forEach((p, i) => {
+            const x = mapX(p.x, xMin, xMax, grid.pad, grid.W);
+            const y = mapY(p.y, yMin, yMax, grid.pad, grid.H);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    });
+}
+
+function drawSmithChart(canvasId, datasets) {
+    const {ctx, width, height} = setupCanvas(canvasId);
+    const cx = width / 2, cy = height / 2;
+    const R = Math.min(width, height) * 0.42;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+
+    // 单位圆
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 等电阻圆
+    [0, 0.2, 0.5, 1, 2, 5].forEach(r => {
+        if (r === 0) {
+            ctx.beginPath();
+            ctx.moveTo(cx - R, cy);
+            ctx.lineTo(cx + R, cy);
+            ctx.stroke();
+        } else {
+            const cX = cx + R * r / (r + 1);
+            const rad = R / (r + 1);
+            ctx.beginPath();
+            ctx.arc(cX, cy, rad, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    });
+
+    // 等电抗圆弧
+    [0.5, 1, 2].forEach(x => {
+        const rad = R / Math.abs(x);
+        ctx.beginPath();
+        ctx.arc(cx + R, cy - R/x, rad, Math.PI*0.5, Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + R, cy + R/x, rad, Math.PI, Math.PI*1.5);
+        ctx.stroke();
+    });
+
+    ctx.strokeStyle = '#a0aec0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - R - 5, cy);
+    ctx.lineTo(cx + R + 5, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - R - 5);
+    ctx.lineTo(cx, cy + R + 5);
+    ctx.stroke();
+
+    ctx.fillStyle = '#718096';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Re(Γ)', cx + R + 24, cy + 3);
+    ctx.fillText('Im(Γ)', cx + 5, cy - R - 14);
+
+    // 数据
+    datasets.forEach(ds => {
+        ctx.strokeStyle = ds.color;
+        ctx.fillStyle = ds.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ds.data.forEach((p, i) => {
+            const x = cx + p.re * R;
+            const y = cy - p.im * R;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    });
+}
+
+function drawCharts() {
+    if (!currentType) {
+        document.getElementById('s1p-charts').style.display = 'none';
+        document.getElementById('s2p-charts').style.display = 'none';
+        return;
+    }
+
+    if (currentType === 's1p') {
+        document.getElementById('s1p-charts').style.display = 'block';
+        document.getElementById('s2p-charts').style.display = 'none';
+
+        const zDatasets = Object.values(fileStore).map(info => ({
+            color: info.color,
+            data: info.data.map(d => ({x: d.freq, y: d.zDB}))
+        }));
+        drawLineChart('canvas-z', zDatasets, 'Frequency (GHz)', '|Z| (dBΩ)');
+
+        const smithDatasets = Object.values(fileStore).map(info => ({
+            color: info.color,
+            data: info.data.map(d => ({re: d.s11.re, im: d.s11.im}))
+        }));
+        drawSmithChart('canvas-smith', smithDatasets);
+
+    } else {
+        document.getElementById('s1p-charts').style.display = 'none';
+        document.getElementById('s2p-charts').style.display = 'block';
+
+        const s21Datasets = Object.values(fileStore).map(info => ({
+            color: info.color,
+            data: info.data.map(d => ({x: d.freq, y: d.s21dB}))
+        }));
+        drawLineChart('canvas-s21', s21Datasets, 'Frequency (GHz)', '|S₂₁| (dB)');
+    }
+}
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(drawCharts, 200);
+});
+</script>
+</body>
+</html>
