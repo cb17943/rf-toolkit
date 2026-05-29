@@ -116,6 +116,18 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
     <div class="sidebar">
       <div class="sidebar-title">已加载文件</div>
       <div class="file-list" id="fileList"></div>
+      <div style="padding:10px;border-top:1px solid #edf2f7">
+        <div style="font-size:11px;color:#718096;font-weight:600;margin-bottom:6px">频率范围 (GHz)</div>
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          <input type="number" id="freqMin" step="any" placeholder="min" style="flex:1;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px">
+          <span style="color:#a0aec0;font-size:11px;line-height:22px">-</span>
+          <input type="number" id="freqMax" step="any" placeholder="max" style="flex:1;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px">
+        </div>
+        <div style="display:flex;gap:4px">
+          <button onclick="applyFreqRange()" style="flex:1;padding:4px;font-size:10px;border:1px solid #667eea;background:#667eea;color:#fff;border-radius:4px;cursor:pointer">应用</button>
+          <button onclick="resetFreqRange()" style="flex:1;padding:4px;font-size:10px;border:1px solid #e2e8f0;background:#fff;color:#4a5568;border-radius:4px;cursor:pointer">重置</button>
+        </div>
+      </div>
       <div class="sidebar-btns">
         <button onclick="showAllFiles()">显示全部</button>
         <button onclick="hideAllFiles()">隐藏全部</button>
@@ -219,6 +231,7 @@ const COLORS=['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9f
 let fileStore={},currentType=null,zScaleMode='db';
 let markers=[],selectedFiles=new Set(),lastClickedFile=null;
 let zoomState={};
+let freqRange={min:null,max:null};
 
 function handleFiles(e){
   const files=Array.from(e.target.files);
@@ -236,7 +249,7 @@ function handleFiles(e){
   files.forEach(file=>{
     const r=new FileReader();
     r.onload=function(ev){
-      try{const d=parseSNP(ev.target.result,file.name);const c=COLORS[idx%COLORS.length];fileStore[file.name]={type:newType,data:d,color:c,visible:true};idx++;updateFileList();drawAll();setStatus(`已加载 ${Object.keys(fileStore).length} 个文件`);}
+      try{const d=parseSNP(ev.target.result,file.name);const c=COLORS[idx%COLORS.length];fileStore[file.name]={type:newType,name:file.name,data:d,bodeq:(file.name.toLowerCase().endsWith('.s1p')?calcBodeQ(d):null),color:c,visible:true};idx++;updateFileList();drawAll();setStatus(`已加载 ${Object.keys(fileStore).length} 个文件`);}
       catch(err){alert('解析失败: '+file.name+'\n'+err.message);}
     };
     r.readAsText(file);
@@ -301,6 +314,38 @@ function calcBodeQ(data){
   return out;
 }
 
+function applyFreqRange(){
+  const min=parseFloat(document.getElementById('freqMin').value);
+  const max=parseFloat(document.getElementById('freqMax').value);
+  if(isNaN(min)||isNaN(max)||min>=max){alert('请输入有效的频率范围 (min < max)');return;}
+  freqRange={min,max};
+  zoomState={};
+  drawAll();
+  setStatus(`频率范围: ${min.toFixed(3)} ~ ${max.toFixed(3)} GHz`);
+}
+function resetFreqRange(){
+  freqRange={min:null,max:null};
+  document.getElementById('freqMin').value='';
+  document.getElementById('freqMax').value='';
+  zoomState={};
+  drawAll();
+  setStatus('频率范围已重置');
+}
+function calcKeff2FromData(data){
+  if(!data||data.length<2)return null;
+  let fs=null,fp=null,minZ=Infinity,maxZ=-Infinity;
+  data.forEach(d=>{
+    let z;
+    if(d.zAbs!==undefined)z=d.zAbs;
+    else if(d.zDB!==undefined)z=d.zDB;
+    else z=d.y||0;
+    if(z<minZ){minZ=z;fs=d.f;}
+    if(z>maxZ){maxZ=z;fp=d.f;}
+  });
+  if(!fs||!fp||fp===0)return null;
+  const keff2=2.46740110027233*(fs/fp)*((fp-fs)/fp)*100;
+  return{fs,fp,keff2};
+}
 function clearAll(){
   fileStore={};currentType=null;markers=[];selectedFiles.clear();lastClickedFile=null;zoomState={};
   document.getElementById('toggleZBtn').style.display='none';
@@ -491,9 +536,25 @@ function drawAll(){
     zWrap.appendChild(zTitle);
     const zCanv=document.createElement('canvas');zCanv.id='canv-z';zCanv.height=280;
     zWrap.appendChild(zCanv);area.appendChild(zWrap);
-    const zDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>({x:d.f,y:zScaleMode==='db'?d.zDB:d.zAbs}))}));
+    const zDs=Object.values(fileStore).filter(f=>f.visible).map(f=>{
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      return{name:f.name,color:f.color,data:d.map(p=>({x:p.f,y:zScaleMode==='db'?p.zDB:p.zAbs}))};
+    }).filter(f=>f.data.length>0);
     drawLineChart('canv-z',280,zDs,'Frequency (GHz)',zScaleMode==='db'?'|Z| (dBΩ)':'|Z| (Ω)','z');
     buildLegend('legend-z',zDs);
+    // keff² 显示 - 所有文件
+    zDs.forEach(ds=>{
+      const k=calcKeff2FromData(ds.data.map(p=>({f:p.x,y:p.y})));
+      if(k){
+        const kDiv=document.createElement('div');
+        kDiv.style.cssText='background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:6px 10px;border-radius:6px;margin-top:6px;font-size:11px;display:flex;justify-content:space-between;align-items:center';
+        kDiv.innerHTML=`<span>${ds.name}: keff²=<b>${k.keff2.toFixed(4)}%</b></span><span style="opacity:.8;font-size:10px">fs=${k.fs.toFixed(3)}G fp=${k.fp.toFixed(3)}G</span>`;
+        zWrap.appendChild(kDiv);
+      }
+    });
 
     const bWrap=document.createElement('div');bWrap.className='chart-wrap';
     const bTitle=document.createElement('div');bTitle.className='chart-title';
@@ -502,9 +563,15 @@ function drawAll(){
     const bCanv=document.createElement('canvas');bCanv.id='canv-bodeq';bCanv.height=260;
     bWrap.appendChild(bCanv);area.appendChild(bWrap);
     const bDs=Object.values(fileStore).filter(f=>f.visible).map(f=>{
-      const bq=calcBodeQ(f.data);
-      return{color:f.color,data:f.data.map((d,i)=>({x:d.f,y:bq[i]})).filter(p=>!isNaN(p.y))};
-    });
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      const bq=f.bodeq||calcBodeQ(f.data);
+      const idxMap=new Map();
+      f.data.forEach((p,i)=>idxMap.set(p.f,i));
+      return{name:f.name,color:f.color,data:d.map(p=>{const i=idxMap.get(p.f);return{x:p.f,y:i!==undefined?bq[i]:NaN};}).filter(p=>!isNaN(p.y))};
+    }).filter(f=>f.data.length>0);
     drawLineChart('canv-bodeq',260,bDs,'Frequency (GHz)','BodeQ','bodeq');
     buildLegend('legend-bodeq',bDs);
 
@@ -514,7 +581,13 @@ function drawAll(){
     sWrap.appendChild(sTitle);
     const sCanv=document.createElement('canvas');sCanv.id='canv-smith';sCanv.height=300;
     sWrap.appendChild(sCanv);area.appendChild(sWrap);
-    const sDs=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>d.s)}));
+    const sDs=Object.values(fileStore).filter(f=>f.visible).map(f=>{
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      return{name:f.name,color:f.color,data:d.map(p=>p.s)};
+    }).filter(f=>f.data.length>0);
     drawSmithChart('canv-smith',300,sDs);
     buildLegend('legend-smith',sDs);
   }else{
@@ -524,7 +597,13 @@ function drawAll(){
     wrap.appendChild(title);
     const canv=document.createElement('canvas');canv.id='canv-s21';canv.height=360;
     wrap.appendChild(canv);area.appendChild(wrap);
-    const ds=Object.values(fileStore).filter(f=>f.visible).map(f=>({color:f.color,data:f.data.map(d=>({x:d.f,y:d.s21dB}))}));
+    const ds=Object.values(fileStore).filter(f=>f.visible).map(f=>{
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      return{name:f.name,color:f.color,data:d.map(p=>({x:p.f,y:p.s21dB}))};
+    }).filter(f=>f.data.length>0);
     drawLineChart('canv-s21',360,ds,'Frequency (GHz)','|S₂₁| (dB)','s21');
     buildLegend('legend-s21',ds);
   }
@@ -536,7 +615,7 @@ function buildLegend(id,datasets){
   box.innerHTML='';
   datasets.forEach(ds=>{
     const item=document.createElement('div');item.className='legend-item';
-    item.innerHTML=`<div class="legend-color" style="background:${ds.color}"></div>${ds.color}`;
+    item.innerHTML=`<div class="legend-color" style="background:${ds.color}"></div>${ds.name}`;
     box.appendChild(item);
   });
 }
@@ -590,7 +669,7 @@ function findNearestPoint(cid,mcx,mcy){
       let px=d.f,py;
       if(axKey==='z'){py=zScaleMode==='db'?d.zDB:Math.log10(d.zAbs);}
       else if(axKey==='s21'){py=d.s21dB;}
-      else if(axKey==='bodeq'){const bq=calcBodeQ(info.data)[i];if(isNaN(bq))return;py=Math.log10(bq);}
+      else if(axKey==='bodeq'){const bq=info.bodeq?info.bodeq[i]:null;if(!bq||isNaN(bq)||bq<=0)return;py=Math.log10(bq);}
       else return;
       const sx=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
       const sy=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
