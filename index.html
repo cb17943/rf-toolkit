@@ -95,6 +95,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 </style>
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="header">
@@ -116,7 +117,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
     <div class="sidebar">
       <div class="sidebar-title">已加载文件</div>
       <div class="file-list" id="fileList"></div>
-      <div style="padding:10px;border-top:1px solid #edf2f7">
+      <div id="freqRangePanel" style="padding:10px;border-top:1px solid #edf2f7;display:none">
         <div style="font-size:11px;color:#718096;font-weight:600;margin-bottom:6px">频率范围 (GHz)</div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
           <input type="number" id="freqMin" step="any" placeholder="min" style="flex:1;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:11px">
@@ -366,6 +367,8 @@ function updateFileList(){
     row.oncontextmenu=(e)=>{e.preventDefault();showFileCtx(e,name);};
     box.appendChild(row);
   });
+  const freqPanel=document.getElementById('freqRangePanel');
+  if(freqPanel)freqPanel.style.display=Object.keys(fileStore).length>0?'block':'none';
 }
 
 function onFileClick(e,name){
