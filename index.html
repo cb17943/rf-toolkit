@@ -96,6 +96,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="header">
@@ -460,7 +461,6 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
   if(x1===Infinity)return;
   const xm=(x2-x1)*0.02||0.1,ym=(y2-y1)*0.1||1;
   x1-=xm;x2+=xm;y1-=ym;y2+=ym;
-  if(isLogY&&y1<=0)y1=-6;
   const g=drawGrid(ctx,w,H,x1,x2,y1,y2,xL,yL,isLogY);
   if(!zoomState[axKey])zoomState[axKey]={xlim:[x1,x2],ylim:[y1,y2]};
   const zs=zoomState[axKey];
@@ -480,7 +480,7 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
     const info=fileStore[m.name];if(!info||!info.visible)return;
     const d=info.data[m.idx];if(!d)return;
     let px,py;
-    if(axKey==='z'){px=d.f;py=zScaleMode==='db'?d.zDB:d.zAbs;}
+    if(axKey==='z'){px=d.f;py=zScaleMode==='db'?d.zDB:(isLogY?Math.log10(d.zAbs):d.zAbs);}
     else if(axKey==='s21'){px=d.f;py=d.s21dB;}
     else if(axKey==='bodeq'){px=d.f;py=m.bodeqVal;}
     if(px===undefined)return;
@@ -712,6 +712,49 @@ function bindCtxMenu(){
           const bq=currentType==='s1p'?calcBodeQ(fileStore[nearest.name].data)[nearest.idx]:null;
           markers.push({name:nearest.name,idx:nearest.idx,freq:nearest.freq,bodeqVal:bq});
           drawAll();setStatus(`已添加 Marker: ${nearest.name} @ ${nearest.freq.toFixed(3)} GHz`);
+        }});
+        items.push('sep');
+      }
+      if(cid==='canv-z'){
+        items.push({label:'标记所有曲线阻抗最大值',fn:()=>{
+          let count=0;
+          Object.entries(fileStore).forEach(([name,info])=>{
+            if(!info.visible)return;
+            let maxVal=-Infinity,maxIdx=-1;
+            info.data.forEach((d,i)=>{
+              let val=zScaleMode==='db'?d.zDB:d.zAbs;
+              if(val>maxVal){maxVal=val;maxIdx=i;}
+            });
+            if(maxIdx>=0){
+              if(!markers.some(m=>m.name===name&&m.idx===maxIdx)){
+                const bq=currentType==='s1p'?calcBodeQ(info.data)[maxIdx]:null;
+                markers.push({name:name,idx:maxIdx,freq:info.data[maxIdx].f,bodeqVal:bq});
+                count++;
+              }
+            }
+          });
+          drawAll();
+          setStatus(`已标记 ${count} 个阻抗最大值点`);
+        }});
+        items.push({label:'标记所有曲线阻抗最小值',fn:()=>{
+          let count=0;
+          Object.entries(fileStore).forEach(([name,info])=>{
+            if(!info.visible)return;
+            let minVal=Infinity,minIdx=-1;
+            info.data.forEach((d,i)=>{
+              let val=zScaleMode==='db'?d.zDB:d.zAbs;
+              if(val<minVal){minVal=val;minIdx=i;}
+            });
+            if(minIdx>=0){
+              if(!markers.some(m=>m.name===name&&m.idx===minIdx)){
+                const bq=currentType==='s1p'?calcBodeQ(info.data)[minIdx]:null;
+                markers.push({name:name,idx:minIdx,freq:info.data[minIdx].f,bodeqVal:bq});
+                count++;
+              }
+            }
+          });
+          drawAll();
+          setStatus(`已标记 ${count} 个阻抗最小值点`);
         }});
         items.push('sep');
       }
