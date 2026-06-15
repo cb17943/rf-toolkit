@@ -455,6 +455,7 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
   datasets.forEach(ds=>ds.data.forEach(p=>{
     let py=p.y;
     if(isLogY){if(p.y<=0)return;py=Math.log10(p.y);}
+    if(!isFinite(py))return;
     if(p.x<x1)x1=p.x;if(p.x>x2)x2=p.x;
     if(py<y1)y1=py;if(py>y2)y2=py;
   }));
@@ -470,6 +471,7 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
     ds.data.forEach(p=>{
       let py=p.y;
       if(isLogY){if(p.y<=0)return;py=Math.log10(p.y);}
+      if(!isFinite(py))return;
       const x=mx(p.x,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
       const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
       if(first){ctx.moveTo(x,y);first=false;}else{ctx.lineTo(x,y);}
@@ -479,15 +481,20 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
   markers.forEach(m=>{
     const info=fileStore[m.name];if(!info||!info.visible)return;
     const d=info.data[m.idx];if(!d)return;
-    let px,py;
-    if(axKey==='z'){px=d.f;py=zScaleMode==='db'?d.zDB:(isLogY?Math.log10(d.zAbs):d.zAbs);}
-    else if(axKey==='s21'){px=d.f;py=d.s21dB;}
-    else if(axKey==='bodeq'){px=d.f;py=m.bodeqVal;}
-    if(px===undefined)return;
+    let px,py,displayVal;
+    if(axKey==='z'){
+      px=d.f;
+      if(zScaleMode==='db'){py=d.zDB;displayVal=d.zDB;}
+      else{displayVal=d.zAbs;py=isLogY?Math.log10(d.zAbs):d.zAbs;}
+    }
+    else if(axKey==='s21'){px=d.f;py=d.s21dB;displayVal=d.s21dB;}
+    else if(axKey==='bodeq'){px=d.f;py=m.bodeqVal;displayVal=m.bodeqVal;}
+    if(px===undefined||!isFinite(py))return;
     const x=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
     const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
     ctx.fillStyle='#ff0000';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`${px.toFixed(3)}G\n${py.toFixed(2)}`,x+8,y-5);
+    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';
+    ctx.fillText(`${px.toFixed(3)}G, ${displayVal.toFixed(2)}`,x+8,y-5);
   });
   bindBoxZoom(cid,axKey,zs,g);
   cvsMeta[cid]={zs,g,axKey};
