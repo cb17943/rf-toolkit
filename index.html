@@ -36,7 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
 .sidebar-btns button{flex:1;padding:6px;font-size:11px;border:1px solid #e2e8f0;background:#fff;border-radius:4px;cursor:pointer;color:#4a5568}
 .sidebar-btns button:hover{background:#f7fafc}
 .chart-area{flex:1;overflow-y:auto;padding:12px;background:#f5f6fa}
-.chart-wrap{background:#fff;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);position:relative}
+.chart-wrap{background:#fff;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.06);position:relative;width:100%}
 .chart-title{font-size:12px;font-weight:600;color:#4a5568;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .chart-title .legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .chart-title .legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#718096;font-weight:500}
@@ -83,7 +83,10 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 .ctx-menu-item:hover{background:#f7fafc}
 .ctx-menu-sep{border-top:1px solid #edf2f7;margin:4px 0}
 
-.s2p-wrap{max-width:900px;margin:0 auto}
+/* S2P stats bar */
+.s2p-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.s2p-stat-item{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:6px}
+.s2p-stat-item b{font-size:13px}
 
 @media(max-width:768px){
   .main{flex-direction:column}
@@ -91,21 +94,19 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
   .file-list{max-height:120px}
   .chart-area{padding:8px}
   canvas{touch-action:pan-y !important;cursor:default}
+  .s2p-stats{flex-direction:column;gap:6px}
 }
 </style>
-<base target="_blank">
-<base target="_blank">
-<base target="_blank">
 <base target="_blank">
 </head>
 <body>
 <div class="header">
-  <span>📱 RF 工具箱</span>
+  <span>RF 工具箱</span>
   <input type="file" id="fileInput" accept=".s1p,.s2p" multiple style="display:none" onchange="handleFiles(event)">
   <button class="btn" onclick="document.getElementById('fileInput').click()">+ 打开文件</button>
-  <button class="btn" onclick="saveImage()">💾 保存图像</button>
+  <button class="btn" onclick="saveImage()">保存图像</button>
   <button class="btn" id="toggleZBtn" onclick="toggleZScale()" style="display:none">切换 dBΩ/Ω</button>
-  <button class="btn" onclick="resetView()">⟲ 重置视图</button>
+  <button class="btn" onclick="resetView()">重置视图</button>
 </div>
 
 <div class="tabbar">
@@ -230,6 +231,8 @@ convInput.addEventListener('input',calcConvert);
 
 // ==================== S参数分析 ====================
 const COLORS=['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9ff3','#54a0ff','#5f27cd','#00d2d3'];
+const S11_COLORS=['#e74c3c','#ff6b6b','#e67e22','#f39c12','#d35400'];
+const S22_COLORS=['#2ecc71','#27ae60','#1abc9c','#16a085','#00d2d3'];
 let fileStore={},currentType=null,zScaleMode='db';
 let markers=[],selectedFiles=new Set(),lastClickedFile=null;
 let zoomState={};
@@ -251,7 +254,21 @@ function handleFiles(e){
   files.forEach(file=>{
     const r=new FileReader();
     r.onload=function(ev){
-      try{const d=parseSNP(ev.target.result,file.name);const c=COLORS[idx%COLORS.length];fileStore[file.name]={type:newType,name:file.name,data:d,bodeq:(file.name.toLowerCase().endsWith('.s1p')?calcBodeQ(d):null),color:c,visible:true};idx++;updateFileList();drawAll();setStatus(`已加载 ${Object.keys(fileStore).length} 个文件`);}
+      try{
+        const d=parseSNP(ev.target.result,file.name);
+        const c=COLORS[idx%COLORS.length];
+        const s11c=S11_COLORS[idx%S11_COLORS.length];
+        const s22c=S22_COLORS[idx%S22_COLORS.length];
+        fileStore[file.name]={
+          type:newType,name:file.name,data:d,
+          bodeq:(file.name.toLowerCase().endsWith('.s1p')?calcBodeQ(d):null),
+          color:c,s11Color:s11c,s22Color:s22c,visible:true
+        };
+        idx++;
+        updateFileList();
+        drawAll();
+        setStatus(`已加载 ${Object.keys(fileStore).length} 个文件`);
+      }
       catch(err){alert('解析失败: '+file.name+'\n'+err.message);}
     };
     r.readAsText(file);
@@ -283,11 +300,37 @@ function parseSNP(text,name){
       const zAbs=z0*m1p/m1m,zDB=20*Math.log10(zAbs);
       data.push({f:fGHz,s:{re,im},zAbs,zDB});
     }else{
+      // S2P: parse S11, S21, S12, S22
+      let s11re=n[1],s11im=n[2];
       let s21re=n[3],s21im=n[4];
-      if(fmt==='MA'){const ph=n[4]*Math.PI/180;s21re=n[3]*Math.cos(ph);s21im=n[3]*Math.sin(ph);}
-      else if(fmt==='DB'){const mg=Math.pow(10,n[3]/20);const ph=n[4]*Math.PI/180;s21re=mg*Math.cos(ph);s21im=mg*Math.sin(ph);}
-      const s21dB=20*Math.log10(Math.sqrt(s21re*s21re+s21im*s21im));
-      data.push({f:fGHz,s21:{re:s21re,im:s21im},s21dB});
+      let s12re=n[5],s12im=n[6];
+      let s22re=n[7],s22im=n[8];
+      if(fmt==='MA'){
+        const ph11=n[2]*Math.PI/180;s11re=n[1]*Math.cos(ph11);s11im=n[1]*Math.sin(ph11);
+        const ph21=n[4]*Math.PI/180;s21re=n[3]*Math.cos(ph21);s21im=n[3]*Math.sin(ph21);
+        const ph12=n[6]*Math.PI/180;s12re=n[5]*Math.cos(ph12);s12im=n[5]*Math.sin(ph12);
+        const ph22=n[8]*Math.PI/180;s22re=n[7]*Math.cos(ph22);s22im=n[7]*Math.sin(ph22);
+      }else if(fmt==='DB'){
+        const mg11=Math.pow(10,n[1]/20);const ph11=n[2]*Math.PI/180;s11re=mg11*Math.cos(ph11);s11im=mg11*Math.sin(ph11);
+        const mg21=Math.pow(10,n[3]/20);const ph21=n[4]*Math.PI/180;s21re=mg21*Math.cos(ph21);s21im=mg21*Math.sin(ph21);
+        const mg12=Math.pow(10,n[5]/20);const ph12=n[6]*Math.PI/180;s12re=mg12*Math.cos(ph12);s12im=mg12*Math.sin(ph12);
+        const mg22=Math.pow(10,n[7]/20);const ph22=n[8]*Math.PI/180;s22re=mg22*Math.cos(ph22);s22im=mg22*Math.sin(ph22);
+      }
+      const s11mag=Math.sqrt(s11re*s11re+s11im*s11im);
+      const s21mag=Math.sqrt(s21re*s21re+s21im*s21im);
+      const s12mag=Math.sqrt(s12re*s12re+s12im*s12im);
+      const s22mag=Math.sqrt(s22re*s22re+s22im*s22im);
+      const s11dB=s11mag>1e-12?20*Math.log10(s11mag):-120;
+      const s21dB=s21mag>1e-12?20*Math.log10(s21mag):-120;
+      const s12dB=s12mag>1e-12?20*Math.log10(s12mag):-120;
+      const s22dB=s22mag>1e-12?20*Math.log10(s22mag):-120;
+      const vswr11=s11mag<0.999?(1+s11mag)/(1-s11mag):999;
+      const vswr22=s22mag<0.999?(1+s22mag)/(1-s22mag):999;
+      data.push({
+        f:fGHz,
+        s11:{re:s11re,im:s11im},s21:{re:s21re,im:s21im},s12:{re:s12re,im:s12im},s22:{re:s22re,im:s22im},
+        s11dB,s21dB,s12dB,s22dB,vswr11,vswr22
+      });
     }
   }
   if(data.length===0)throw new Error('无有效数据');
@@ -348,6 +391,44 @@ function calcKeff2FromData(data){
   const keff2=2.46740110027233*(fs/fp)*((fp-fs)/fp)*100;
   return{fs,fp,keff2};
 }
+
+// ==================== Filter Parameters for S2P ====================
+function calcFilterParams(data){
+  if(!data||data.length<3)return null;
+  // Find peak of S21 (minimum insertion loss)
+  let peakIdx=0,peakVal=-Infinity;
+  data.forEach((d,i)=>{if(d.s21dB>peakVal){peakVal=d.s21dB;peakIdx=i;}});
+  const f0=data[peakIdx].f;
+  const minIL=peakVal;
+  // Find 3dB bandwidth: points where S21 = peakVal - 3
+  const target=peakVal-3;
+  let fLow=null,fHigh=null;
+  // Search left side
+  for(let i=peakIdx;i>0;i--){
+    if((data[i].s21dB>=target&&data[i-1].s21dB<=target)||(data[i].s21dB<=target&&data[i-1].s21dB>=target)){
+      // Linear interpolation
+      const d1=data[i-1],d2=data[i];
+      fLow=d1.f+(d2.f-d1.f)*(target-d1.s21dB)/(d2.s21dB-d1.s21dB);
+      break;
+    }
+  }
+  // Search right side
+  for(let i=peakIdx;i<data.length-1;i++){
+    if((data[i].s21dB>=target&&data[i+1].s21dB<=target)||(data[i].s21dB<=target&&data[i+1].s21dB>=target)){
+      const d1=data[i],d2=data[i+1];
+      fHigh=d1.f+(d2.f-d1.f)*(target-d1.s21dB)/(d2.s21dB-d1.s21dB);
+      break;
+    }
+  }
+  if(fLow===null||fHigh===null)return{f0,minIL,bw3dB:null,q:null};
+  const bw3dB=fHigh-fLow;
+  const q=bw3dB>0?f0/bw3dB:null;
+  // Find min insertion loss within 3dB bandwidth
+  let minIL3dB=Infinity;
+  data.forEach(d=>{if(d.f>=fLow&&d.f<=fHigh&&d.s21dB<minIL3dB)minIL3dB=d.s21dB;});
+  return{f0,minIL,bw3dB,q,fLow,fHigh,minIL3dB:minIL3dB===Infinity?minIL:minIL3dB};
+}
+
 function clearAll(){
   fileStore={};currentType=null;markers=[];selectedFiles.clear();lastClickedFile=null;zoomState={};
   document.getElementById('toggleZBtn').style.display='none';
@@ -390,12 +471,17 @@ function setupCanvas(id,h){
   let el=document.getElementById(id);
   if(!el){el=document.createElement('canvas');el.id=id;}
   const dpr=window.devicePixelRatio||1;
-  const rect=el.getBoundingClientRect();
-  const w=rect.width||el.parentElement.clientWidth;
-  el.width=(w||600)*dpr;el.height=(h||280)*dpr;
-  el.style.width=(w||600)+'px';el.style.height=(h||280)+'px';
-  const ctx=el.getContext('2d');ctx.scale(dpr,dpr);
-  return{ctx,w:w||600,h:h||280,dpr};
+  // Get width from parent element for responsive sizing
+  const parent=el.parentElement;
+  const w=parent?(parent.clientWidth||parent.offsetWidth||600):600;
+  el.width=w*dpr;
+  el.height=(h||280)*dpr;
+  el.style.width='100%';
+  el.style.height=(h||280)+'px';
+  const ctx=el.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr,dpr);
+  return{ctx,w,h:h||280,dpr};
 }
 
 function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL,isLogY){
@@ -408,7 +494,7 @@ function drawGrid(ctx,W,H,xMin,xMax,yMin,yMax,xL,yL,isLogY){
     ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+Gh);ctx.stroke();
     const v=xMin+(xMax-xMin)*i/5;
     ctx.fillStyle='#718096';ctx.font='11px Arial';ctx.textAlign='center';
-    ctx.fillText(v.toFixed(2),x,pad.t+Gh+18);
+    ctx.fillText(v.toFixed(3),x,pad.t+Gh+18);
   }
   if(isLogY){
     for(let i=0;i<=5;i++){
@@ -466,7 +552,9 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
   if(!zoomState[axKey])zoomState[axKey]={xlim:[x1,x2],ylim:[y1,y2]};
   const zs=zoomState[axKey];
   datasets.forEach(ds=>{
-    ctx.strokeStyle=ds.color;ctx.lineWidth=2;ctx.beginPath();
+    ctx.strokeStyle=ds.color;ctx.lineWidth=ds.lineWidth||2;
+    if(ds.dash)ctx.setLineDash(ds.dash);else ctx.setLineDash([]);
+    ctx.beginPath();
     let first=true;
     ds.data.forEach(p=>{
       let py=p.y;
@@ -474,27 +562,46 @@ function drawLineChart(cid,h,datasets,xL,yL,axKey){
       if(!isFinite(py))return;
       const x=mx(p.x,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
       const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
+      if(x<g.pad.l-10||x>g.pad.l+g.Gw+10||y<g.pad.t-10||y>g.pad.t+g.Gh+10)return;
       if(first){ctx.moveTo(x,y);first=false;}else{ctx.lineTo(x,y);}
     });
     ctx.stroke();
+    ctx.setLineDash([]);
   });
+  // Draw markers
   markers.forEach(m=>{
     const info=fileStore[m.name];if(!info||!info.visible)return;
     const d=info.data[m.idx];if(!d)return;
     let px,py,displayVal;
+    const param=m.param||'s21';
     if(axKey==='z'){
       px=d.f;
       if(zScaleMode==='db'){py=d.zDB;displayVal=d.zDB;}
       else{displayVal=d.zAbs;py=isLogY?Math.log10(d.zAbs):d.zAbs;}
     }
-    else if(axKey==='s21'){px=d.f;py=d.s21dB;displayVal=d.s21dB;}
-    else if(axKey==='bodeq'){px=d.f;py=m.bodeqVal;displayVal=m.bodeqVal;}
+    else if(axKey==='s21'){
+      px=d.f;
+      if(param==='s11'){py=d.s11dB;displayVal=d.s11dB;}
+      else if(param==='s12'){py=d.s12dB;displayVal=d.s12dB;}
+      else if(param==='s22'){py=d.s22dB;displayVal=d.s22dB;}
+      else{py=d.s21dB;displayVal=d.s21dB;}
+    }
+    else if(axKey==='vswr'){
+      px=d.f;
+      if(param==='vswr22'){py=d.vswr22;displayVal=d.vswr22;}
+      else{py=d.vswr11;displayVal=d.vswr11;}
+    }
+    else if(axKey==='bodeq'){
+      px=d.f;py=m.bodeqVal;displayVal=m.bodeqVal;
+    }
     if(px===undefined||!isFinite(py))return;
     const x=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
     const y=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
+    if(x<g.pad.l||x>g.pad.l+g.Gw||y<g.pad.t||y>g.pad.t+g.Gh)return;
     ctx.fillStyle='#ff0000';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';
-    ctx.fillText(`${px.toFixed(3)}G, ${displayVal.toFixed(2)}`,x+8,y-5);
+    const paramLabel=param?param.toUpperCase()+'=':'';
+    ctx.fillText(`${px.toFixed(3)}G, ${paramLabel}${displayVal.toFixed(2)}`,x+8,y-5);
   });
   bindBoxZoom(cid,axKey,zs,g);
   cvsMeta[cid]={zs,g,axKey};
@@ -531,7 +638,7 @@ function drawSmithChart(cid,h,datasets){
     const d=info.data[m.idx];if(!d||!d.s)return;
     const x=cx+d.s.re*R,y=cy-d.s.im*R;
     ctx.fillStyle='#ff0000';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`Re:${d.s.re.toFixed(3)}\nIm:${d.s.im.toFixed(3)}`,x+8,y-5);
+    ctx.fillStyle='#ff0000';ctx.font='bold 10px Arial';ctx.fillText(`Re:${d.s.re.toFixed(3)} Im:${d.s.im.toFixed(3)}`,x+8,y-5);
   });
 }
 
@@ -601,21 +708,80 @@ function drawAll(){
     drawSmithChart('canv-smith',300,sDs);
     buildLegend('legend-smith',sDs);
   }else{
-    const wrap=document.createElement('div');wrap.className='chart-wrap s2p-wrap';
-    const title=document.createElement('div');title.className='chart-title';
-    title.innerHTML='<span>|S₂₁| 插损/增益</span><div class="legend" id="legend-s21"></div>';
-    wrap.appendChild(title);
-    const canv=document.createElement('canvas');canv.id='canv-s21';canv.height=360;
-    wrap.appendChild(canv);area.appendChild(wrap);
-    const ds=Object.values(fileStore).filter(f=>f.visible).map(f=>{
+    // ========== S2P Charts ==========
+
+    // --- Chart 1: S11 + S12 + S21 + S22 overlay ---
+    const s21Wrap=document.createElement('div');s21Wrap.className='chart-wrap';
+    const s21Title=document.createElement('div');s21Title.className='chart-title';
+    s21Title.innerHTML='<span>S参数全览 (S₁₁/S₁₂/S₂₁/S₂₂)</span><div class="legend" id="legend-s21"></div>';
+    s21Wrap.appendChild(s21Title);
+    const s21Canv=document.createElement('canvas');s21Canv.id='canv-s21';s21Canv.height=320;
+    s21Wrap.appendChild(s21Canv);area.appendChild(s21Wrap);
+
+    const s21Ds=[];
+    Object.values(fileStore).filter(f=>f.visible).forEach(f=>{
       let d=f.data;
       if(freqRange.min!==null&&freqRange.max!==null){
         d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
       }
-      return{name:f.name,color:f.color,data:d.map(p=>({x:p.f,y:p.s21dB}))};
-    }).filter(f=>f.data.length>0);
-    drawLineChart('canv-s21',360,ds,'Frequency (GHz)','|S₂₁| (dB)','s21');
-    buildLegend('legend-s21',ds);
+      s21Ds.push({name:f.name+' S21',param:'s21',color:f.color,lineWidth:2,data:d.map(p=>({x:p.f,y:p.s21dB}))});
+      s21Ds.push({name:f.name+' S11',param:'s11',color:f.s11Color,lineWidth:1.5,dash:[6,3],data:d.map(p=>({x:p.f,y:p.s11dB}))});
+      s21Ds.push({name:f.name+' S12',param:'s12',color:'#2ecc71',lineWidth:1.5,dash:[3,3],data:d.map(p=>({x:p.f,y:p.s12dB}))});
+      s21Ds.push({name:f.name+' S22',param:'s22',color:f.s22Color,lineWidth:1.5,dash:[10,3],data:d.map(p=>({x:p.f,y:p.s22dB}))});
+    });
+    drawLineChart('canv-s21',320,s21Ds,'Frequency (GHz)','Magnitude (dB)','s21');
+    buildLegend('legend-s21',s21Ds);
+
+    // Filter parameters display
+    const statsDiv=document.createElement('div');
+    statsDiv.className='s2p-stats';
+    Object.values(fileStore).filter(f=>f.visible).forEach(f=>{
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      const fp=calcFilterParams(d);
+      if(fp){
+        const statItem=document.createElement('div');
+        statItem.className='s2p-stat-item';
+        let html=`<b>${f.name}</b>: `;
+        html+=`f₀=${fp.f0.toFixed(3)}G`;
+        if(fp.bw3dB!==null){
+          html+=` | 3dB-BW=${(fp.bw3dB*1e3).toFixed(2)}M (${fp.bw3dB.toFixed(3)}G)`;
+          html+=` | Q=${fp.q.toFixed(1)}`;
+        }
+        html+=` | Min IL=${fp.minIL.toFixed(2)}dB`;
+        if(fp.bw3dB!==null){
+          html+=` (BW内=${fp.minIL3dB.toFixed(2)}dB)`;
+        }
+        statItem.innerHTML=html;
+        statsDiv.appendChild(statItem);
+      }
+    });
+    if(statsDiv.children.length>0)s21Wrap.appendChild(statsDiv);
+
+    // --- Chart 2: VSWR (S11 + S22) ---
+    const vswrWrap=document.createElement('div');vswrWrap.className='chart-wrap';
+    const vswrTitle=document.createElement('div');vswrTitle.className='chart-title';
+    vswrTitle.innerHTML='<span>VSWR 电压驻波比</span><div class="legend" id="legend-vswr"></div>';
+    vswrWrap.appendChild(vswrTitle);
+    const vswrCanv=document.createElement('canvas');vswrCanv.id='canv-vswr';vswrCanv.height=280;
+    vswrWrap.appendChild(vswrCanv);area.appendChild(vswrWrap);
+
+    const vswrDs=[];
+    Object.values(fileStore).filter(f=>f.visible).forEach(f=>{
+      let d=f.data;
+      if(freqRange.min!==null&&freqRange.max!==null){
+        d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
+      }
+      vswrDs.push({name:f.name+' S11',param:'vswr11',color:f.s11Color,data:d.map(p=>({x:p.f,y:p.vswr11}))});
+      vswrDs.push({name:f.name+' S22',param:'vswr22',color:f.s22Color,data:d.map(p=>({x:p.f,y:p.vswr22}))});
+    });
+    vswrDs.forEach(ds=>{
+      ds.data.forEach(p=>{if(p.y>50)p.y=50;});
+    });
+    drawLineChart('canv-vswr',280,vswrDs,'Frequency (GHz)','VSWR','vswr');
+    buildLegend('legend-vswr',vswrDs);
   }
   bindCtxMenu();
 }
@@ -625,7 +791,8 @@ function buildLegend(id,datasets){
   box.innerHTML='';
   datasets.forEach(ds=>{
     const item=document.createElement('div');item.className='legend-item';
-    item.innerHTML=`<div class="legend-color" style="background:${ds.color}"></div>${ds.name}`;
+    const dashStyle=ds.dash?'border:1px dashed '+ds.color:'background:'+ds.color;
+    item.innerHTML=`<div class="legend-color" style="${dashStyle}"></div>${ds.name}`;
     box.appendChild(item);
   });
 }
@@ -654,8 +821,26 @@ function bindBoxZoom(cid,axKey,zs,g){
   if(window.innerWidth<=768)return;
   let start=null;
   c.onmousedown=(e)=>{if(e.button!==0)return;const r=c.getBoundingClientRect();start={x:e.clientX-r.x,y:e.clientY-r.y};};
-  c.onmousemove=(e)=>{if(!start)return;const r=c.getBoundingClientRect();const x=e.clientX-r.x,y=e.clientY-r.y;drawAll();const ctx=c.getContext('2d');ctx.strokeStyle='rgba(102,126,234,0.5)';ctx.fillStyle='rgba(102,126,234,0.1)';ctx.fillRect(start.x,start.y,x-start.x,y-start.y);ctx.strokeRect(start.x,start.y,x-start.x,y-start.y);};
-  c.onmouseup=(e)=>{if(!start)return;const r=c.getBoundingClientRect();const x2=e.clientX-r.x,y2=e.clientY-r.y;const x1=start.x,y1=start.y;start=null;
+  c.onmousemove=(e)=>{
+    if(!start)return;
+    const r=c.getBoundingClientRect();
+    const x=e.clientX-r.x,y=e.clientY-r.y;
+    drawAll();
+    const ctx=c.getContext('2d');
+    // Need to re-acquire context after drawAll
+    const dpr=window.devicePixelRatio||1;
+    ctx.save();
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.strokeStyle='rgba(102,126,234,0.5)';ctx.fillStyle='rgba(102,126,234,0.1)';
+    const rx=Math.min(start.x,x),ry=Math.min(start.y,y),rw=Math.abs(x-start.x),rh=Math.abs(y-start.y);
+    ctx.fillRect(rx,ry,rw,rh);ctx.strokeRect(rx,ry,rw,rh);
+    ctx.restore();
+  };
+  c.onmouseup=(e)=>{
+    if(!start)return;
+    const r=c.getBoundingClientRect();
+    const x2=e.clientX-r.x,y2=e.clientY-r.y;
+    const x1=start.x,y1=start.y;start=null;
     const xMin=Math.min(x1,x2),xMax=Math.max(x1,x2),yMin=Math.min(y1,y2),yMax=Math.max(y1,y2);
     if(xMax-xMin<5||yMax-yMin<5)return;
     const xv1=zs.xlim[0]+(xMin-g.pad.l)/g.Gw*(zs.xlim[1]-zs.xlim[0]);
@@ -669,7 +854,17 @@ function bindBoxZoom(cid,axKey,zs,g){
 }
 
 // ========== Right-click nearest point ==========
-function findNearestPoint(cid,mcx,mcy){
+function getParamY(d,param){
+  if(!param||param==='s21')return d.s21dB;
+  if(param==='s11')return d.s11dB;
+  if(param==='s12')return d.s12dB;
+  if(param==='s22')return d.s22dB;
+  if(param==='vswr11')return d.vswr11;
+  if(param==='vswr22')return d.vswr22;
+  return d.s21dB;
+}
+
+function findNearestPoint(cid,mcx,mcy,param){
   const meta=cvsMeta[cid];if(!meta)return null;
   const{zs,g,axKey}=meta;
   let best=null,bestDist=Infinity;
@@ -678,13 +873,21 @@ function findNearestPoint(cid,mcx,mcy){
     info.data.forEach((d,i)=>{
       let px=d.f,py;
       if(axKey==='z'){py=zScaleMode==='db'?d.zDB:Math.log10(d.zAbs);}
-      else if(axKey==='s21'){py=d.s21dB;}
+      else if(axKey==='s21'){
+        if(param){py=getParamY(d,param);}
+        else{py=d.s21dB;}
+      }
+      else if(axKey==='vswr'){
+        if(param==='vswr22')py=d.vswr22;
+        else py=d.vswr11;
+      }
       else if(axKey==='bodeq'){const bq=info.bodeq?info.bodeq[i]:null;if(!bq||isNaN(bq)||bq<=0)return;py=Math.log10(bq);}
       else return;
+      if(!isFinite(py))return;
       const sx=mx(px,zs.xlim[0],zs.xlim[1],g.pad,g.Gw);
       const sy=my(py,zs.ylim[0],zs.ylim[1],g.pad,g.Gh);
       const dist=Math.sqrt((sx-mcx)**2+(sy-mcy)**2);
-      if(dist<bestDist){bestDist=dist;best={name,idx:i,freq:d.f};}
+      if(dist<bestDist){bestDist=dist;best={name,idx:i,freq:d.f,param:param};}
     });
   });
   return best;
@@ -711,59 +914,42 @@ function bindCtxMenu(){
       const r=c.getBoundingClientRect();
       const mcx=e.clientX-r.x,mcy=e.clientY-r.y;
       const cid=c.id;
-      const nearest=findNearestPoint(cid,mcx,mcy);
+      const meta=cvsMeta[cid];
+      const axKey=meta?meta.axKey:null;
       const items=[];
-      if(nearest){
-        items.push({label:`在此位置添加 Marker (${nearest.freq.toFixed(3)}G)`,fn:()=>{
-          if(markers.some(m=>m.name===nearest.name&&m.idx===nearest.idx)){setStatus('该位置已存在 Marker');return;}
-          const bq=currentType==='s1p'?calcBodeQ(fileStore[nearest.name].data)[nearest.idx]:null;
-          markers.push({name:nearest.name,idx:nearest.idx,freq:nearest.freq,bodeqVal:bq});
-          drawAll();setStatus(`已添加 Marker: ${nearest.name} @ ${nearest.freq.toFixed(3)} GHz`);
-        }});
-        items.push('sep');
-      }
-      if(cid==='canv-z'){
-        items.push({label:'标记所有曲线阻抗最大值',fn:()=>{
-          let count=0;
-          Object.entries(fileStore).forEach(([name,info])=>{
-            if(!info.visible)return;
-            let maxVal=-Infinity,maxIdx=-1;
-            info.data.forEach((d,i)=>{
-              let val=zScaleMode==='db'?d.zDB:d.zAbs;
-              if(val>maxVal){maxVal=val;maxIdx=i;}
-            });
-            if(maxIdx>=0){
-              if(!markers.some(m=>m.name===name&&m.idx===maxIdx)){
-                const bq=currentType==='s1p'?calcBodeQ(info.data)[maxIdx]:null;
-                markers.push({name:name,idx:maxIdx,freq:info.data[maxIdx].f,bodeqVal:bq});
-                count++;
-              }
+
+      // For S2P charts: list all file×param curves
+      if(currentType==='s2p'&&(cid==='canv-s21'||cid==='canv-vswr')){
+        const s2pParams=cid==='canv-s21'
+          ?[{p:'s21',l:'S21'},{p:'s11',l:'S11'},{p:'s12',l:'S12'},{p:'s22',l:'S22'}]
+          :[{p:'vswr11',l:'S11 VSWR'},{p:'vswr22',l:'S22 VSWR'}];
+        Object.values(fileStore).filter(f=>f.visible).forEach(f=>{
+          s2pParams.forEach(sp=>{
+            const nearest=findNearestPoint(cid,mcx,mcy,sp.p);
+            if(nearest){
+              const color=sp.p==='s21'?f.color:(sp.p==='s11'||sp.p==='vswr11'?f.s11Color:(sp.p==='s12'?'#2ecc71':f.s22Color));
+              items.push({label:`[${f.name}] ${sp.l} (${nearest.freq.toFixed(3)}G)`,fn:()=>{
+                if(markers.some(m=>m.name===nearest.name&&m.idx===nearest.idx&&m.param===sp.p)){setStatus('该位置已存在 Marker');return;}
+                markers.push({name:nearest.name,idx:nearest.idx,freq:nearest.freq,param:sp.p});
+                drawAll();setStatus(`已添加 Marker: ${f.name} ${sp.l} @ ${nearest.freq.toFixed(3)} GHz`);
+              }});
             }
           });
-          drawAll();
-          setStatus(`已标记 ${count} 个阻抗最大值点`);
-        }});
-        items.push({label:'标记所有曲线阻抗最小值',fn:()=>{
-          let count=0;
-          Object.entries(fileStore).forEach(([name,info])=>{
-            if(!info.visible)return;
-            let minVal=Infinity,minIdx=-1;
-            info.data.forEach((d,i)=>{
-              let val=zScaleMode==='db'?d.zDB:d.zAbs;
-              if(val<minVal){minVal=val;minIdx=i;}
-            });
-            if(minIdx>=0){
-              if(!markers.some(m=>m.name===name&&m.idx===minIdx)){
-                const bq=currentType==='s1p'?calcBodeQ(info.data)[minIdx]:null;
-                markers.push({name:name,idx:minIdx,freq:info.data[minIdx].f,bodeqVal:bq});
-                count++;
-              }
-            }
-          });
-          drawAll();
-          setStatus(`已标记 ${count} 个阻抗最小值点`);
-        }});
-        items.push('sep');
+        });
+        if(items.length>0)items.push('sep');
+      }else{
+        // For S1P charts: find nearest point directly
+        const nearest=findNearestPoint(cid,mcx,mcy);
+        if(nearest){
+          items.push({label:`添加 Marker (${nearest.freq.toFixed(3)}G)`,fn:()=>{
+            if(markers.some(m=>m.name===nearest.name&&m.idx===nearest.idx)){setStatus('该位置已存在 Marker');return;}
+            const bq=currentType==='s1p'?calcBodeQ(fileStore[nearest.name].data)[nearest.idx]:null;
+            const param=axKey==='z'?'z':(axKey==='bodeq'?'bodeq':'s21');
+            markers.push({name:nearest.name,idx:nearest.idx,freq:nearest.freq,bodeqVal:bq,param:param});
+            drawAll();setStatus(`已添加 Marker: ${nearest.name} @ ${nearest.freq.toFixed(3)} GHz`);
+          }});
+          items.push('sep');
+        }
       }
       items.push({label:'精确添加 Marker...',fn:()=>openMarkerDialog()});
       items.push({label:'Marker 列表...',fn:()=>showMarkerList()});
@@ -795,13 +981,13 @@ function openMarkerDialog(){
     <h3>精确添加 Marker</h3>
     <div class="dialog-row"><label>目标频率 (GHz):</label><input type="number" id="md-freq" step="any"></div>
     <div class="dialog-row"><label id="md-ylabel">目标Y值:</label><input type="number" id="md-y" step="any"></div>
-    ${!isS2p?'<div class="dialog-row"><label>目标图形:</label><select id="md-target"><option value="z">阻抗图 |Z|</option><option value="bodeq">BodeQ图</option></select></div>':''}
+    ${!isS2p?'<div class="dialog-row"><label>目标图形:</label><select id="md-target"><option value="z">阻抗图 |Z|</option><option value="bodeq">BodeQ图</option></select></div>':'<div class="dialog-row"><label>目标参数:</label><select id="md-s2p-param"><option value="s21">S21</option><option value="s11">S11</option><option value="s12">S12</option><option value="s22">S22</option></select></div>'}
     <div style="color:#a0aec0;font-size:11px;margin-bottom:8px">至少输入一项，留空则忽略该项</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="primary" style="padding:6px 12px;border:none;border-radius:4px;background:#667eea;color:#fff;cursor:pointer" onclick="searchMarkerCandidates()">查找候选</button>
     </div>
     <div style="max-height:200px;overflow-y:auto;border:1px solid #edf2f7;border-radius:6px">
-      <table class="dialog-table" id="md-table"><thead><tr><th>文件名</th><th>频率(GHz)</th><th>Y值</th><th>ΔFreq</th><th>ΔY</th></tr></thead><tbody></tbody></table>
+      <table class="dialog-table" id="md-table"><thead><tr><th>文件名</th><th>参数</th><th>频率(GHz)</th><th>Y值</th><th>ΔFreq</th><th>ΔY</th></tr></thead><tbody></tbody></table>
     </div>
     <div class="dialog-btns">
       <button class="primary" onclick="addSelectedMarker()">添加选中</button>
@@ -817,24 +1003,25 @@ function searchMarkerCandidates(){
   const fStr=document.getElementById('md-freq').value.trim();
   const yStr=document.getElementById('md-y').value.trim();
   const target=currentType!=='s2p'?(document.getElementById('md-target')?.value||'z'):'s21';
+  const s2pParam=document.getElementById('md-s2p-param')?.value||'s21';
   if(!fStr&&!yStr){alert('至少输入一项');return;}
   const tf=fStr?parseFloat(fStr):null,ty=yStr?parseFloat(yStr):null;
   mdCandidates=[];
   Object.entries(fileStore).forEach(([name,info])=>{
     info.data.forEach((d,i)=>{
       let yVal;
-      if(currentType==='s2p')yVal=d.s21dB;
+      if(currentType==='s2p')yVal=getParamY(d,s2pParam);
       else if(target==='z')yVal=zScaleMode==='db'?d.zDB:d.zAbs;
       else{yVal=calcBodeQ(info.data)[i];}
       if(tf!==null&&ty!==null){
         const fe=Math.abs(d.f-tf),ye=Math.abs(yVal-ty);
-        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye,score:fe*10+ye});
+        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye,score:fe*10+ye,param:s2pParam});
       }else if(tf!==null){
         const fe=Math.abs(d.f-tf);
-        mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye:0,score:fe});
+        mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe,ye:0,score:fe,param:s2pParam});
       }else{
         const ye=Math.abs(yVal-ty);
-        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe:0,ye,score:ye});
+        if(!isNaN(yVal))mdCandidates.push({name,idx:i,freq:d.f,y:yVal,fe:0,ye,score:ye,param:s2pParam});
       }
     });
   });
@@ -843,7 +1030,7 @@ function searchMarkerCandidates(){
   else mdCandidates.sort((a,b)=>a.ye-b.ye);
   mdCandidates=mdCandidates.slice(0,50);
   const tbody=document.querySelector('#md-table tbody');
-  tbody.innerHTML=mdCandidates.map((c,i)=>`<tr data-idx="${i}" onclick="selectMdRow(this)"><td>${c.name}</td><td>${c.freq.toFixed(3)}</td><td>${isNaN(c.y)?'N/A':c.y.toFixed(2)}</td><td>${c.fe?c.fe.toFixed(3):'-'}</td><td>${c.ye?c.ye.toFixed(2):'-'}</td></tr>`).join('');
+  tbody.innerHTML=mdCandidates.map((c,i)=>`<tr data-idx="${i}" onclick="selectMdRow(this)"><td>${c.name}</td><td>${(c.param||'s21').toUpperCase()}</td><td>${c.freq.toFixed(3)}</td><td>${isNaN(c.y)?'N/A':c.y.toFixed(2)}</td><td>${c.fe?c.fe.toFixed(3):'-'}</td><td>${c.ye?c.ye.toFixed(2):'-'}</td></tr>`).join('');
 }
 function selectMdRow(tr){tr.parentElement.querySelectorAll('tr').forEach(r=>r.classList.remove('active'));tr.classList.add('active');}
 function addSelectedMarker(){
@@ -851,10 +1038,11 @@ function addSelectedMarker(){
   if(!sel){alert('请先选中一个候选');return;}
   const idx=parseInt(sel.dataset.idx);
   const c=mdCandidates[idx];
-  if(markers.some(m=>m.name===c.name&&m.idx===c.idx)){alert('该位置已存在 Marker');return;}
+  const param=c.param||(currentType==='s2p'?'s21':'z');
+  if(markers.some(m=>m.name===c.name&&m.idx===c.idx&&m.param===param)){alert('该位置已存在 Marker');return;}
   const bq=currentType==='s1p'?calcBodeQ(fileStore[c.name].data)[c.idx]:null;
-  markers.push({name:c.name,idx:c.idx,freq:c.freq,bodeqVal:bq});
-  drawAll();setStatus(`已添加 Marker: ${c.name} @ ${c.freq.toFixed(3)} GHz`);
+  markers.push({name:c.name,idx:c.idx,freq:c.freq,bodeqVal:bq,param:param});
+  drawAll();setStatus(`已添加 Marker: ${c.name} ${param.toUpperCase()} @ ${c.freq.toFixed(3)} GHz`);
   document.querySelector('.dialog-overlay').remove();
 }
 
@@ -864,11 +1052,18 @@ function showMarkerList(){
   dlg.innerHTML=`<div class="dialog">
     <h3>Marker 列表</h3>
     <div style="max-height:300px;overflow-y:auto;border:1px solid #edf2f7;border-radius:6px">
-      <table class="dialog-table"><thead><tr><th>文件名</th><th>频率(GHz)</th><th>Y值</th><th></th></tr></thead><tbody>
+      <table class="dialog-table"><thead><tr><th>文件名</th><th>参数</th><th>频率(GHz)</th><th>Y值</th><th></th></tr></thead><tbody>
         ${markers.map((m,i)=>{
           const d=fileStore[m.name].data[m.idx];
-          let y=currentType==='s2p'?d.s21dB:(zScaleMode==='db'?d.zDB:d.zAbs);
-          return `<tr><td>${m.name}</td><td>${m.freq.toFixed(3)}</td><td>${y.toFixed(2)}</td><td><button onclick="removeMarkerByIdx(${i});this.closest('.dialog-overlay').remove();showMarkerList();" style="border:none;background:#fc8181;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">删除</button></td></tr>`;
+          let y;
+          const param=m.param||'s21';
+          const paramLabel=param.toUpperCase();
+          if(currentType==='s2p'){
+            y=getParamY(d,param);
+          }else{
+            y=zScaleMode==='db'?d.zDB:d.zAbs;
+          }
+          return `<tr><td>${m.name}</td><td>${paramLabel}</td><td>${m.freq.toFixed(3)}</td><td>${(isNaN(y)?'N/A':y.toFixed(2))}</td><td><button onclick="removeMarkerByIdx(${i});this.closest('.dialog-overlay').remove();showMarkerList();" style="border:none;background:#fc8181;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">删除</button></td></tr>`;
         }).join('')}
       </tbody></table>
     </div>
