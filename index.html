@@ -99,6 +99,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 </style>
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="header">
@@ -392,6 +393,21 @@ function calcKeff2FromData(data){
   const keff2=2.46740110027233*(fs/fp)*((fp-fs)/fp)*100;
   return{fs,fp,keff2,zs:minZ,zp:maxZ};
 }
+
+function findZsZpIndices(data){
+  if(!data||data.length<2)return null;
+  let zsIdx=0,zpIdx=0,minZ=Infinity,maxZ=-Infinity;
+  data.forEach((d,i)=>{
+    let z;
+    if(d.zAbs!==undefined)z=d.zAbs;
+    else if(d.zDB!==undefined)z=d.zDB;
+    else z=d.y||0;
+    if(z<minZ){minZ=z;zsIdx=i;}
+    if(z>maxZ){maxZ=z;zpIdx=i;}
+  });
+  return{zsIdx,zpIdx,minZ,maxZ};
+}
+
 
 // ==================== Filter Parameters for S2P ====================
 function calcFilterParams(data){
@@ -827,25 +843,29 @@ let boxZoomState=null;
 function bindBoxZoom(cid,axKey,zs,g){
   const c=document.getElementById(cid);if(!c)return;
   if(window.innerWidth<=768)return;
+  const wrap=c.parentElement;
+  let overlay=wrap.querySelector('.zoom-overlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.className='zoom-overlay';
+    overlay.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10;overflow:hidden;';
+    wrap.appendChild(overlay);
+  }
   let start=null;
   c.onmousedown=(e)=>{if(e.button!==0)return;const r=c.getBoundingClientRect();start={x:e.clientX-r.x,y:e.clientY-r.y};};
   c.onmousemove=(e)=>{
     if(!start)return;
     const r=c.getBoundingClientRect();
+    const wr=wrap.getBoundingClientRect();
     const x=e.clientX-r.x,y=e.clientY-r.y;
-    drawAll();
-    const ctx=c.getContext('2d');
-    // Need to re-acquire context after drawAll
-    const dpr=window.devicePixelRatio||1;
-    ctx.save();
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.strokeStyle='rgba(102,126,234,0.5)';ctx.fillStyle='rgba(102,126,234,0.1)';
-    const rx=Math.min(start.x,x),ry=Math.min(start.y,y),rw=Math.abs(x-start.x),rh=Math.abs(y-start.y);
-    ctx.fillRect(rx,ry,rw,rh);ctx.strokeRect(rx,ry,rw,rh);
-    ctx.restore();
+    const rx=Math.min(start.x,x),ry=Math.min(start.y,y);
+    const rw=Math.abs(x-start.x),rh=Math.abs(y-start.y);
+    const ox=r.x-wr.x,oy=r.y-wr.y;
+    overlay.innerHTML=`<div style="position:absolute;left:${ox+rx}px;top:${oy+ry}px;width:${rw}px;height:${rh}px;background:rgba(102,126,234,0.1);border:1.5px solid rgba(102,126,234,0.5);border-radius:2px;box-sizing:border-box;"></div>`;
   };
   c.onmouseup=(e)=>{
     if(!start)return;
+    overlay.innerHTML='';
     const r=c.getBoundingClientRect();
     const x2=e.clientX-r.x,y2=e.clientY-r.y;
     const x1=start.x,y1=start.y;start=null;
@@ -859,6 +879,7 @@ function bindBoxZoom(cid,axKey,zs,g){
     zs.ylim=[Math.min(yv1,yv2),Math.max(yv1,yv2)];
     drawAll();
   };
+  c.onmouseleave=()=>{if(start){start=null;overlay.innerHTML='';}};
 }
 
 // ========== Right-click nearest point ==========
@@ -925,6 +946,13 @@ function bindCtxMenu(){
       const meta=cvsMeta[cid];
       const axKey=meta?meta.axKey:null;
       const items=[];
+
+      // For S1P charts: add Zs/Zp marker options
+      if(currentType==='s1p'){
+        items.push({label:'增加 Zs marker',fn:()=>showZsZpFileDialog('zs')});
+        items.push({label:'增加 Zp marker',fn:()=>showZsZpFileDialog('zp')});
+        items.push('sep');
+      }
 
       // For S2P charts: list all file×param curves
       if(currentType==='s2p'&&(cid==='canv-s21'||cid==='canv-vswr')){
@@ -1082,6 +1110,66 @@ function showMarkerList(){
   document.body.appendChild(dlg);
 }
 function removeMarkerByIdx(i){markers.splice(i,1);drawAll();setStatus('已删除 Marker');}
+
+function showZsZpFileDialog(type){
+  if(!Object.keys(fileStore).length){alert('请先加载数据');return;}
+  const dlg=document.createElement('div');dlg.className='dialog-overlay';
+  const typeLabel=type==='zs'?'Zs':'Zp';
+  const typeDesc=type==='zs'?'串联谐振阻抗（最小阻抗点）':'并联谐振阻抗（最大阻抗点）';
+  dlg.innerHTML=`<div class="dialog">
+    <h3>选择文件 — 增加 ${typeLabel} Marker</h3>
+    <div style="font-size:12px;color:#718096;margin-bottom:10px">${typeDesc} · 可多选</div>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid #edf2f7;border-radius:6px;margin-bottom:14px">
+      <table class="dialog-table" id="zsZp-table"><thead><tr><th>选择</th><th>文件名</th><th>${typeLabel} 频率 (GHz)</th><th>${typeLabel} 阻抗</th></tr></thead><tbody>
+        ${Object.entries(fileStore).map(([name,info])=>{
+          const idxs=findZsZpIndices(info.data);
+          if(!idxs)return'';
+          const idx=type==='zs'?idxs.zsIdx:idxs.zpIdx;
+          const d=info.data[idx];
+          const zVal=type==='zs'?idxs.minZ:idxs.maxZ;
+          const zUnit=zScaleMode==='db'?'dBΩ':'Ω';
+          return `<tr onclick="toggleZsZpRow(this)" data-name="${name}" data-idx="${idx}"><td><input type="checkbox" name="zsZpSel" value="${name}" onclick="event.stopPropagation()"></td><td>${name}</td><td>${d.f.toFixed(3)}</td><td>${zVal.toFixed(2)} ${zUnit}</td></tr>`;
+        }).join('')}
+      </tbody></table>
+    </div>
+    <div class="dialog-btns">
+      <button class="primary" onclick="addZsZpMarker('${type}')">添加 Marker</button>
+      <button class="secondary" onclick="this.closest('.dialog-overlay').remove()">取消</button>
+    </div>
+  </div>`;
+  document.body.appendChild(dlg);
+}
+function toggleZsZpRow(tr){
+  const chk=tr.querySelector('input[type=checkbox]');
+  chk.checked=!chk.checked;
+  tr.classList.toggle('active',chk.checked);
+}
+function addZsZpMarker(type){
+  const sels=document.querySelectorAll('input[name=zsZpSel]:checked');
+  if(!sels.length){alert('请至少选择一个文件');return;}
+  const typeLabel=type==='zs'?'Zs':'Zp';
+  let added=0,skipped=0;
+  sels.forEach(sel=>{
+    const name=sel.value;
+    const info=fileStore[name];
+    if(!info)return;
+    const idxs=findZsZpIndices(info.data);
+    if(!idxs)return;
+    const idx=type==='zs'?idxs.zsIdx:idxs.zpIdx;
+    const d=info.data[idx];
+    const param='z';
+    if(markers.some(m=>m.name===name&&m.idx===idx&&m.param===param)){skipped++;return;}
+    const bq=calcBodeQ(info.data)[idx];
+    markers.push({name:name,idx:idx,freq:d.f,bodeqVal:bq,param:param});
+    added++;
+  });
+  drawAll();
+  let msg=`已添加 ${added} 个 ${typeLabel} Marker`;
+  if(skipped>0)msg+=` (${skipped} 个已存在被跳过)`;
+  setStatus(msg);
+  document.querySelector('.dialog-overlay').remove();
+}
+
 
 // ========== Keyboard shortcuts ==========
 document.addEventListener('keydown',e=>{if(e.key==='Delete'&&selectedFiles.size){deleteSelectedFiles();}});
