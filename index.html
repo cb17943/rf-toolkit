@@ -100,6 +100,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 <div class="header">
@@ -121,6 +122,19 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
     <div class="sidebar">
       <div class="sidebar-title">已加载文件</div>
       <div class="file-list" id="fileList"></div>
+      <div id="s2pParamPanel" style="padding:10px;border-top:1px solid #edf2f7;display:none">
+        <div style="font-size:11px;color:#718096;font-weight:600;margin-bottom:6px">S参数显示</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" id="chk-s21" checked onchange="toggleS2pParam('s21')" style="cursor:pointer">S₂₁</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" id="chk-s11" checked onchange="toggleS2pParam('s11')" style="cursor:pointer">S₁₁</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" id="chk-s12" checked onchange="toggleS2pParam('s12')" style="cursor:pointer">S₁₂</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#4a5568;cursor:pointer"><input type="checkbox" id="chk-s22" checked onchange="toggleS2pParam('s22')" style="cursor:pointer">S₂₂</label>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:6px">
+          <button onclick="selectAllS2pParams()" style="flex:1;padding:4px;font-size:10px;border:1px solid #e2e8f0;background:#fff;color:#4a5568;border-radius:4px;cursor:pointer">全选</button>
+          <button onclick="clearAllS2pParams()" style="flex:1;padding:4px;font-size:10px;border:1px solid #e2e8f0;background:#fff;color:#4a5568;border-radius:4px;cursor:pointer">清空</button>
+        </div>
+      </div>
       <div id="freqRangePanel" style="padding:10px;border-top:1px solid #edf2f7;display:none">
         <div style="font-size:11px;color:#718096;font-weight:600;margin-bottom:6px">频率范围 (GHz)</div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
@@ -236,9 +250,25 @@ const COLORS=['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#feca57','#ff9f
 const S11_COLORS=['#e74c3c','#ff6b6b','#e67e22','#f39c12','#d35400'];
 const S22_COLORS=['#2ecc71','#27ae60','#1abc9c','#16a085','#00d2d3'];
 let fileStore={},currentType=null,zScaleMode='db';
+let s2pParams={s11:true,s12:true,s21:true,s22:true};
 let markers=[],selectedFiles=new Set(),lastClickedFile=null;
 let zoomState={};
 let freqRange={min:null,max:null};
+
+function toggleS2pParam(param){
+  s2pParams[param]=document.getElementById('chk-'+param).checked;
+  drawAll();
+  const active=[...Object.entries(s2pParams)].filter(([k,v])=>v).map(([k])=>k.toUpperCase());
+  setStatus('显示: '+active.join(' / '));
+}
+function selectAllS2pParams(){
+  ['s11','s12','s21','s22'].forEach(p=>{s2pParams[p]=true;document.getElementById('chk-'+p).checked=true;});
+  drawAll();setStatus('已全选 S参数');
+}
+function clearAllS2pParams(){
+  ['s11','s12','s21','s22'].forEach(p=>{s2pParams[p]=false;document.getElementById('chk-'+p).checked=false;});
+  drawAll();setStatus('已清空 S参数选择');
+}
 
 function handleFiles(e){
   const files=Array.from(e.target.files);
@@ -252,6 +282,7 @@ function handleFiles(e){
   }
   currentType=newType;
   document.getElementById('toggleZBtn').style.display=currentType==='s1p'?'inline-block':'none';
+      document.getElementById('s2pParamPanel').style.display=currentType==='s2p'?'block':'none';
   let idx=Object.keys(fileStore).length;
   files.forEach(file=>{
     const r=new FileReader();
@@ -449,6 +480,7 @@ function calcFilterParams(data){
 function clearAll(){
   fileStore={};currentType=null;markers=[];selectedFiles.clear();lastClickedFile=null;zoomState={};
   document.getElementById('toggleZBtn').style.display='none';
+  document.getElementById('s2pParamPanel').style.display='none';
   updateFileList();
   document.getElementById('chartArea').innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>支持 RI / MA / DB 格式 · 支持批量叠加</div>';
   setStatus('已清空');
@@ -748,10 +780,10 @@ function drawAll(){
       if(freqRange.min!==null&&freqRange.max!==null){
         d=d.filter(p=>p.f>=freqRange.min&&p.f<=freqRange.max);
       }
-      s21Ds.push({name:f.name+' S21',param:'s21',color:f.color,lineWidth:2,data:d.map(p=>({x:p.f,y:p.s21dB}))});
-      s21Ds.push({name:f.name+' S11',param:'s11',color:f.s11Color,lineWidth:1.5,dash:[6,3],data:d.map(p=>({x:p.f,y:p.s11dB}))});
-      s21Ds.push({name:f.name+' S12',param:'s12',color:'#2ecc71',lineWidth:1.5,dash:[3,3],data:d.map(p=>({x:p.f,y:p.s12dB}))});
-      s21Ds.push({name:f.name+' S22',param:'s22',color:f.s22Color,lineWidth:1.5,dash:[10,3],data:d.map(p=>({x:p.f,y:p.s22dB}))});
+      if(s2pParams.s21)s21Ds.push({name:f.name+' S21',param:'s21',color:f.color,lineWidth:2,data:d.map(p=>({x:p.f,y:p.s21dB}))});
+      if(s2pParams.s11)s21Ds.push({name:f.name+' S11',param:'s11',color:f.s11Color,lineWidth:1.5,dash:[6,3],data:d.map(p=>({x:p.f,y:p.s11dB}))});
+      if(s2pParams.s12)s21Ds.push({name:f.name+' S12',param:'s12',color:'#2ecc71',lineWidth:1.5,dash:[3,3],data:d.map(p=>({x:p.f,y:p.s12dB}))});
+      if(s2pParams.s22)s21Ds.push({name:f.name+' S22',param:'s22',color:f.s22Color,lineWidth:1.5,dash:[10,3],data:d.map(p=>({x:p.f,y:p.s22dB}))});
     });
     drawLineChart('canv-s21',320,s21Ds,'Frequency (GHz)','Magnitude (dB)','s21');
     buildLegend('legend-s21',s21Ds);
@@ -956,11 +988,12 @@ function bindCtxMenu(){
 
       // For S2P charts: list all file×param curves
       if(currentType==='s2p'&&(cid==='canv-s21'||cid==='canv-vswr')){
-        const s2pParams=cid==='canv-s21'
-          ?[{p:'s21',l:'S21'},{p:'s11',l:'S11'},{p:'s12',l:'S12'},{p:'s22',l:'S22'}]
-          :[{p:'vswr11',l:'S11 VSWR'},{p:'vswr22',l:'S22 VSWR'}];
+        const s2pParamList=cid==='canv-s21'
+          ?[{p:'s21',l:'S21',chk:'s21'},{p:'s11',l:'S11',chk:'s11'},{p:'s12',l:'S12',chk:'s12'},{p:'s22',l:'S22',chk:'s22'}]
+          :[{p:'vswr11',l:'S11 VSWR',chk:'s11'},{p:'vswr22',l:'S22 VSWR',chk:'s22'}];
         Object.values(fileStore).filter(f=>f.visible).forEach(f=>{
-          s2pParams.forEach(sp=>{
+          s2pParamList.forEach(sp=>{
+            if(!s2pParams[sp.chk])return;
             const nearest=findNearestPoint(cid,mcx,mcy,sp.p);
             if(nearest){
               const color=sp.p==='s21'?f.color:(sp.p==='s11'||sp.p==='vswr11'?f.s11Color:(sp.p==='s12'?'#2ecc71':f.s22Color));
