@@ -7,7 +7,10 @@
 <title>RF 工具箱</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#f5f6fa;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#f5f6fa;overflow:hidden;height:100vh;display:flex;flex-direction:column;zoom:1.15}
+.drop-overlay{position:fixed;inset:0;background:rgba(102,126,234,0.18);border:4px dashed #667eea;z-index:3000;display:none;align-items:center;justify-content:center;pointer-events:none}
+.drop-overlay.show{display:flex}
+.drop-overlay .drop-text{background:#fff;color:#667eea;font-size:20px;font-weight:700;padding:18px 32px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15)}
 .header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:10px 16px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .header .btn{padding:6px 12px;background:rgba(255,255,255,0.2);border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer}
 .header .btn:hover{background:rgba(255,255,255,0.3)}
@@ -156,6 +159,7 @@ canvas{width:100%;display:block;touch-action:none;cursor:crosshair}
     <div class="chart-area" id="chartArea">
       <div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">
         点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>
+        或直接将文件拖拽到页面任意位置<br>
         支持 RI / MA / DB 格式 · 支持批量叠加
       </div>
     </div>
@@ -271,7 +275,12 @@ function clearAllS2pParams(){
 }
 
 function handleFiles(e){
-  const files=Array.from(e.target.files);
+  loadFiles(Array.from(e.target.files));
+  e.target.value='';
+}
+
+function loadFiles(files){
+  files=files.filter(f=>/\.s[12]p$/i.test(f.name));
   if(!files.length)return;
   const types=new Set(files.map(f=>f.name.toLowerCase().endsWith('.s2p')?'s2p':'s1p'));
   if(types.size>1){alert('请选择同一类型文件');return;}
@@ -306,8 +315,35 @@ function handleFiles(e){
     };
     r.readAsText(file);
   });
-  e.target.value='';
 }
+
+// ==================== 拖拽打开文件 ====================
+const dropOverlay=document.createElement('div');
+dropOverlay.className='drop-overlay';
+dropOverlay.innerHTML='<div class="drop-text">松开以打开 .s1p / .s2p 文件</div>';
+document.body.appendChild(dropOverlay);
+let dragDepth=0;
+function hasFileDrag(e){return e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes('Files');}
+document.addEventListener('dragenter',e=>{
+  if(!hasFileDrag(e))return;
+  e.preventDefault();dragDepth++;
+  dropOverlay.classList.add('show');
+});
+document.addEventListener('dragover',e=>{if(hasFileDrag(e))e.preventDefault();});
+document.addEventListener('dragleave',e=>{
+  if(!hasFileDrag(e))return;
+  dragDepth=Math.max(0,dragDepth-1);
+  if(dragDepth===0)dropOverlay.classList.remove('show');
+});
+document.addEventListener('drop',e=>{
+  if(!hasFileDrag(e))return;
+  e.preventDefault();
+  dragDepth=0;dropOverlay.classList.remove('show');
+  const files=Array.from(e.dataTransfer.files).filter(f=>/\.s[12]p$/i.test(f.name));
+  if(!files.length){setStatus('仅支持 .s1p / .s2p 文件');return;}
+  document.querySelectorAll('.tabitem')[1].click();
+  loadFiles(files);
+});
 
 function parseSNP(text,name){
   const lines=text.split(/\r?\n/);
@@ -482,7 +518,7 @@ function clearAll(){
   document.getElementById('toggleZBtn').style.display='none';
   document.getElementById('s2pParamPanel').style.display='none';
   updateFileList();
-  document.getElementById('chartArea').innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>支持 RI / MA / DB 格式 · 支持批量叠加</div>';
+  document.getElementById('chartArea').innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>或直接将文件拖拽到页面任意位置<br>支持 RI / MA / DB 格式 · 支持批量叠加</div>';
   setStatus('已清空');
 }
 
@@ -693,7 +729,7 @@ function drawSmithChart(cid,h,datasets){
 
 function drawAll(){
   const area=document.getElementById('chartArea');
-  if(!currentType){area.innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件</div>';return;}
+  if(!currentType){area.innerHTML='<div style="text-align:center;color:#a0aec0;padding:60px 20px;font-size:14px">点击左上角「打开文件」导入 .s1p 或 .s2p 文件<br>或直接将文件拖拽到页面任意位置</div>';return;}
   area.innerHTML='';
   if(currentType==='s1p'){
     const zWrap=document.createElement('div');zWrap.className='chart-wrap';
